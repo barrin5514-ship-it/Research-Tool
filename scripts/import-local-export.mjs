@@ -1,13 +1,22 @@
 import {readFile,stat} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {parseExport,MAX_EXPORT_BYTES} from '../src/importer.mjs';
 // Read in place, send only to the existing loopback importer, never save a copy.
 const folder=process.argv[2];if(!folder)throw Error('Supply the extracted your_instagram_activity/saved directory.');
 const base='http://127.0.0.1:5199';
 const digest=x=>createHash('sha256').update(x).digest('hex');
 const files=[];const parsed=[];const hashes=[];
-for(const name of ['saved_posts.json','saved_collections.json']){
+const archive=(await stat(resolve(folder))).isFile();
+const sourceHash=archive?digest(await readFile(resolve(folder))):null;
+if(archive){
+ const reader=await readFile(resolve('scripts/read-saved-archive.ps1'),'utf8');
+ const output=await promisify(execFile)('powershell.exe',['-NoProfile','-NonInteractive','-Command',`& { ${reader} } -Archive $env:RESEARCH_IMPORT_ARCHIVE`],{env:{...process.env,RESEARCH_IMPORT_ARCHIVE:resolve(folder)},windowsHide:true,maxBuffer:32*1024*1024,timeout:30000});
+ const contents=JSON.parse(output.stdout.replace(/^\uFEFF/,''));
+ for(const file of contents){parsed.push(parseExport(file.content,{filename:file.name}));files.push(file);}
+}else for(const name of ['saved_posts.json','saved_collections.json']){
  const source=join(resolve(folder),name);if((await stat(source)).size>MAX_EXPORT_BYTES)throw Error('Export exceeds importer limit.');
  const content=await readFile(source,'utf8');parsed.push(parseExport(content,{filename:name}));files.push({name,content});hashes.push(digest(content));
 }
@@ -20,7 +29,8 @@ const all=new Map();for(const p of parsed)for(const item of p.items){const membe
 const existing=new Map(before.videos.map(v=>[v.id,v]));
 const unchangedExisting=after.videos.filter(v=>existing.has(v.id)).every(v=>{const old=existing.get(v.id);return v.status===old.status&&v.attempts===old.attempts&&JSON.stringify(v.result)===JSON.stringify(old.result);});
 const noNewProcessing=after.videos.filter(v=>!existing.has(v.id)).every(v=>v.status==='pending'&&v.attempts===0);
-const sourceFilesUnchanged=(await Promise.all(files.map(async(f,i)=>digest(await readFile(join(resolve(folder),f.name),'utf8'))===hashes[i]))).every(Boolean);
-const report={files:imported.results.map((r,i)=>({filename:r.filename,uniquePosts:parsed[i].items.length,collectionCount:new Set(parsed[i].items.flatMap(x=>x.collections)).size,added:r.added,existing:r.existing,warnings:r.warnings})),uniqueExportPosts:all.size,exportCollections:new Set([...all.values()].flatMap(x=>[...x])).size,targetCollectionCounts:Object.fromEntries(['Pennywise','Personafy','Tech','Dev Squad AI'].map(n=>[n,[...all.values()].filter(s=>s.has(n)).length])),libraryPostsAfter:after.videos.length,unchangedExisting,noNewProcessing,sourceFilesUnchanged,queuePaused:!after.queue.running&&after.queue.active===0,noPaidCalls:after.deepseekUsage.length===before.deepseekUsage.length};
+const sourceFilesUnchanged=archive?digest(await readFile(resolve(folder)))===sourceHash:(await Promise.all(files.map(async(f,i)=>digest(await readFile(join(resolve(folder),f.name),'utf8'))===hashes[i]))).every(Boolean);
+const collections=new Map(parsed.flatMap(p=>p.collections.map(c=>[c.name,c])));
+const report={files:imported.results.map((r,i)=>({filename:r.filename,uniquePosts:parsed[i].items.length,collectionCount:parsed[i].collections.length,added:r.added,existing:r.existing,warnings:r.warnings})),uniqueExportPosts:all.size,exportCollections:collections.size,collectionCounts:[...collections.keys()].map(name=>({name,posts:[...all.values()].filter(s=>s.has(name)).length})),targetCollectionCounts:Object.fromEntries(['Pennywise','Personafy','Tech','Dev Squad AI'].map(n=>[n,[...all.values()].filter(s=>s.has(n)).length])),libraryPostsAfter:after.videos.length,unchangedExisting,noNewProcessing,sourceFilesUnchanged,queuePaused:!after.queue.running&&after.queue.active===0,noPaidCalls:after.deepseekUsage.length===before.deepseekUsage.length};
 console.log(JSON.stringify(report,null,2));
 if(!unchangedExisting||!noNewProcessing||!sourceFilesUnchanged||!report.queuePaused||!report.noPaidCalls)process.exitCode=1;

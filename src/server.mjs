@@ -57,7 +57,7 @@ export function createApp({store,queue,localAIEnabled=false,port=5199,onShutdown
           if (typeof file.name !== 'string' || typeof file.content !== 'string') throw new Error('Invalid import file');
           return {name:file.name.slice(0,200),content:file.content,...parseExport(file.content,{filename:file.name})};
         });
-        const results = parsed.map(file => ({filename:file.name,warnings:file.warnings,...store.import(file.items,{hash:createHash('sha256').update(file.content).digest('hex'),filename:file.name})}));
+        const results = parsed.map(file => ({filename:file.name,posts:file.items.length,collections:file.collections,warnings:file.warnings,...store.import(file.items,{hash:createHash('sha256').update(file.content).digest('hex'),filename:file.name})}));
         return send(200,{results});
       }
       if (path === '/api/links') {

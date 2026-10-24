@@ -116,3 +116,26 @@ test('imports current label_values export and only explicit Media members, never
  assert.equal(collections.items.length,1);assert.deepEqual(collections.items[0].collections,['Tech','Dev Squad AI']);assert.equal(collections.items[0].title,'An example');
  assert.throws(()=>parseExport(JSON.stringify([{label_values:[{label:'Name',value:'Tech'}]}]),{filename:'saved_collections.json'}),/Media/);
 });
+
+test('reads every nested dict group and normalizes collection aliases without importing owner URLs',()=>{
+ const url=id=>({label:'URL',value:`https://www.instagram.com/reel/${id}/`,href:`https://www.instagram.com/reel/${id}/`});
+ const data=[{label_values:[{label:'Name',value:' pennywise  '},{title:'Media',dict:[{dict:[{dict:[url('Nested111')]}]}]},{title:'More media',dict:[{dict:[url('Nested222')]}]},{title:'Owner',dict:[url('Ignore333')]}]},
+ {label_values:[{label:'Name',value:'PENNYWISE'},{title:'Media',dict:[{dict:[url('Nested111')]}]}]},
+ {label_values:[{label:'Name',value:' personafy '},{title:'Media',dict:[url('Person444')]}]},
+ {label_values:[{label:'Name',value:' tech '},{title:'Media',dict:[url('Tech555')]}]},
+ {label_values:[{label:'Name',value:'Empty collection'},{title:'Media',dict:[]}]}];
+ const parsed=parseExport(JSON.stringify(data),{filename:'saved_collections.json'});
+ assert.equal(parsed.items.length,4);assert.deepEqual(parsed.collections,[{name:'Pennywise',posts:2},{name:'Personafy',posts:1},{name:'Tech',posts:1},{name:'Empty collection',posts:0}]);assert.equal(parsed.items.some(x=>x.shortcode==='Ignore333'),false);
+ const posts=parseExport(JSON.stringify([{label_values:[{title:'Media',dict:[{dict:[url('Post666')]},{dict:[{dict:[url('Post777')]}]}]}]}]),{filename:'saved_posts.json'});assert.equal(posts.items.length,2);
+});
+
+test('all 18 synthetic collections and 1306 unique URLs survive nested labeled export parsing',()=>{
+ const counts=[['tech',258],['pennywise ',19],['personafy',13],['reference ',916],...Array.from({length:14},(_,i)=>[`Other ${i}`,i===13?9:7])];
+ const data=counts.map(([name,count],group)=>({label_values:[{label:'Name',value:name},{title:'Media',dict:Array.from({length:count},(_,i)=>({dict:[{dict:[{label:'URL',href:`https://www.instagram.com/p/Synthetic${group}_${i}/`}]}]}))}]}));
+ const parsed=parseExport(JSON.stringify(data),{filename:'saved_collections.json'});assert.equal(parsed.collections.length,18);assert.equal(parsed.items.length,1306);assert.deepEqual(parsed.collections.slice(0,4),[{name:'Tech',posts:258},{name:'Pennywise',posts:19},{name:'Personafy',posts:13},{name:'reference',posts:916}]);
+});
+
+test('modern export counts only explicit p/reel post URLs, never caption/profile/external links',()=>{
+ const data=[{label_values:[{label:'Name',value:' tech '},{title:'Media',dict:[{dict:[{label:'URL',href:'https://www.instagram.com/reel/Real123/'},{label:'Caption',value:'Caption links https://www.instagram.com/p/Caption456/ https://external.example/'}]},{dict:[{label:'URL',href:'https://www.instagram.com/creator/'}]},{dict:[{label:'URL',href:'https://external.example/p/External123/'}]},{dict:[{label:'URL',href:'https://www.instagram.com/tv/Legacy123/'}]},{dict:[{label:'URL',href:'https://www.instagram.com/p/Real789/'}]}]}]}];
+ const result=parseExport(JSON.stringify(data),{filename:'saved_collections.json'});assert.deepEqual(result.items.map(x=>x.shortcode),['Real123','Real789']);assert.deepEqual(result.collections,[{name:'Tech',posts:2}]);assert.match(result.warnings.join(' '),/Non-post URL fields/);
+});

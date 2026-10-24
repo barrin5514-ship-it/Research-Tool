@@ -30,6 +30,11 @@ function plainText(value) {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
 }
 
+export function normalizeCollectionName(value){
+  const cleaned=plainText(value);
+  return ['Pennywise','Personafy','Tech'].find(name=>name.toLowerCase()===cleaned.toLowerCase())||cleaned;
+}
+
 export function normalizeInstagramUrl(raw) {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > 4096) {
     throw new Error('Instagram URL must be a nonempty string of at most 4096 characters.');
@@ -85,20 +90,45 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function parseJson(text, filename, add, warn) {
+function parseJson(text, filename, add, warn,registerCollection) {
   let data;
   try { data = JSON.parse(text); } catch { throw new Error('Malformed JSON export.'); }
   let recognized = false;
+
+  // Walk every dict list, excluding creator metadata rather than assuming a
+  // single Media group or a fixed nesting depth. Never evaluate/fetch content.
+  function labeledPosts(fields,memberships,depth=0){
+    if(depth>60)throw new Error('Saved export nesting exceeds the supported depth.');
+    let found=0;
+    const caption=plainText(fields.find(x=>x?.label==='Caption')?.value);
+    for(const field of fields){
+      if(!isObject(field))continue;
+      if(field.label==='URL'){
+        const url=field.href||field.value;
+        if(typeof url==='string'&&url.trim()){
+          // Only explicit post fields count. Captions are never URL-scanned,
+          // and profile/external/legacy-TV links are not modern saved posts.
+          try{
+            const parsed=new URL(decodeEntities(url.trim()));
+            if(!/^\/(?:p|reel)\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname))throw new Error('Not a post');
+            normalizeInstagramUrl(url);
+          }catch{warn('Non-post URL fields were ignored; only Instagram /p/ and /reel/ links are imported.');continue;}
+          add(url,caption,memberships);found++;
+        }
+      }
+      if(Array.isArray(field.dict)&&!['owner','brand partner','hashtags'].includes(plainText(field.title).toLowerCase()))found+=labeledPosts(field.dict,memberships,depth+1);
+      if(Array.isArray(field.label_values))found+=labeledPosts(field.label_values,memberships,depth+1);
+    }
+    return found;
+  }
 
   function post(entry, collections, direct = false) {
     if (typeof entry === 'string' && direct) { add(entry, '', collections); return; }
     if (!isObject(entry)) throw new Error('Unsupported saved-post entry: expected an object.');
     if(Array.isArray(entry.label_values)||Array.isArray(entry.dict)){
       const fields=entry.label_values??entry.dict;
-      const link=fields.find(x=>x?.label==='URL');
-      const caption=fields.find(x=>x?.label==='Caption');
-      if(typeof (link?.href||link?.value)!=='string')throw new Error('Labeled saved-post record has no URL.');
-      add(link.href||link.value,plainText(caption?.value),collections);return;
+      if(!labeledPosts(fields,collections))throw new Error('Labeled saved-post record has no URL.');
+      return;
     }
     const saved = entry.string_map_data?.['Saved on'];
     const title = plainText(entry.caption ?? entry.string_map_data?.Caption?.value);
@@ -126,6 +156,7 @@ function parseJson(text, filename, add, warn) {
       // An explicit collection-name -> posts map. Keys are names only here.
       for (const [name, members] of Object.entries(entries)) {
         const cleaned = plainText(name);
+        registerCollection(cleaned);
         if (!cleaned) warn('An empty collection name was ignored.');
         posts(members, cleaned ? [cleaned] : [], true);
       }
@@ -136,12 +167,15 @@ function parseJson(text, filename, add, warn) {
       if (!isObject(entry)) throw new Error('Unsupported collection record.');
       if(Array.isArray(entry.label_values)){
         const name=plainText(entry.label_values.find(x=>x?.label==='Name')?.value);
-        const media=entry.label_values.find(x=>x?.title==='Media'&&Array.isArray(x.dict));
+        registerCollection(name);
+        const groups=entry.label_values.filter(x=>Array.isArray(x?.dict)&&!['owner','brand partner','hashtags'].includes(plainText(x.title).toLowerCase()));
         if(!name)warn('A collection record has no explicit name; its posts remain unassigned.');
-        if(!media)throw new Error('Labeled collection record has no Media group.');
-        posts(media.dict,name?[name]:[],false);continue;
+        if(!groups.length)throw new Error('Labeled collection record has no Media/dict group.');
+        for(const group of groups)labeledPosts(group.dict,name?[name]:[]);
+        continue;
       }
       const name = plainText(entry.name ?? entry.collection_name ?? entry.string_map_data?.Name?.value);
+      registerCollection(name);
       // title commonly names a creator in saved posts; it is never membership evidence.
       if (!name) warn('A collection record has no explicit name; its posts remain unassigned.');
       const memberships = name ? [name] : [];
@@ -179,10 +213,12 @@ export function parseExport(text, { filename = '' } = {}) {
   if (!input) throw new Error('Export is empty.');
   const byShortcode = new Map();
   const warnings = new Set();
+  const collectionNames=new Map();
+  const registerCollection=value=>{const name=normalizeCollectionName(value);if(!name)return '';const key=name.toLowerCase();if(!collectionNames.has(key))collectionNames.set(key,name);return collectionNames.get(key);};
   let duplicates = 0;
   const warn = message => warnings.add(message);
   const add = (raw, title, memberships) => {
-    memberships=memberships.map(name=>['Pennywise','Personafy','Tech'].find(project=>project.toLowerCase()===name.toLowerCase())||name);
+    memberships=memberships.map(registerCollection).filter(Boolean);
     const normalized = normalizeInstagramUrl(raw);
     const originalPath = new URL(decodeEntities(raw.trim())).pathname.replace(/\/$/, '');
     const originalUrl = `https://www.instagram.com${originalPath}/`;
@@ -195,12 +231,12 @@ export function parseExport(text, { filename = '' } = {}) {
       byShortcode.set(normalized.shortcode, { ...normalized, originalUrl, title, collections: [...new Set(memberships)] });
     }
   };
-  if (/\.json$/i.test(filename) || /^[\[{]/.test(input)) parseJson(input, filename, add, warn);
+  if (/\.json$/i.test(filename) || /^[\[{]/.test(input)) parseJson(input, filename, add, warn,registerCollection);
   else if (/\.html?$/i.test(filename) || input.startsWith('<')) parseHtml(input, add, warn);
   else throw new Error('Unsupported export format. Choose an Instagram saved-post or collection JSON/HTML file.');
   const items = [...byShortcode.values()];
   if (duplicates) warn(`${duplicates} duplicate URL record${duplicates === 1 ? '' : 's'} merged by Instagram shortcode.`);
   if (items.some(item => !item.collections.length)) warn('Some posts have no collection membership in the export and remain unassigned. Creator names were not used as collections.');
   if (!items.length) warn('No post URLs were imported; check the export format and selected Saved information.');
-  return { items, warnings: [...warnings] };
+  return { items, warnings: [...warnings],collections:[...collectionNames.values()].map(name=>({name,posts:items.filter(item=>item.collections.includes(name)).length})) };
 }
