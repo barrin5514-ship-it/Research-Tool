@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Research Library</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+</head>
+<body>
+  <header><div class="brand">R<span>Research Library</span></div><span class="badge">LOCAL · THREE-VIDEO PILOT</span></header>
+  <main>
+    <section class="intro"><p class="eyebrow">FROM SAVED VIDEOS TO USEFUL IDEAS</p><h1>Your next idea starts here.</h1><p>Organize your Instagram collections, inspect videos, and review research for your projects.</p></section>
+    <aside class="notice"><strong>This is a partial proof of concept.</strong> Import and processing are available. Local speech and OCR extraction are connected. AI reasoning and independent claim verification still need validation. Videos awaiting those steps are never counted as analyzed.</aside>
+    <section class="stats" id="stats" aria-label="Processing totals"></section>
+    <div class="layout">
+      <aside class="sidebar"><h2>Collections</h2><nav id="collections" aria-label="Collection filters"></nav><p class="small">Collection membership comes from your export or your manual choice. Missing membership stays Unassigned.</p><div class="local-note"><strong>Your projects stay yours.</strong><p>Approvals are recorded here. This library cannot modify Personafy or Pennywise or execute trades.</p></div></aside>
+      <div>
+        <section class="panel"><div class="panel-heading"><h2>Add your saved videos</h2><span class="step">01 / IMPORT</span></div>
+          <p>Request an official Instagram export in Meta Accounts Center. Extract the ZIP on your computer, then choose the saved-post and saved-collection HTML or JSON files.</p>
+          <div class="import-row"><input id="files" type="file" accept=".html,.htm,.json" multiple aria-label="Saved-post and collection export files"><button id="import">Import export files</button></div>
+          <details><summary>Or add up to three public links</summary><label for="links">One Instagram video link per line</label><textarea id="links" rows="3" placeholder="https://www.instagram.com/reel/…"></textarea><div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div></details>
+          <p class="small">No Instagram password or cookies are requested. Reimporting an updated export preserves previous work. Missing old links are retained as history.</p>
+        </section>
+        <section class="toolbar"><div><h2>Research inbox</h2><p id="queue-state" class="small">Loading…</p></div><div><button id="start">Process up to 3 videos</button><button id="pause" class="secondary">Pause queue</button></div></section>
+        <div id="message" role="status" aria-live="polite"></div><div id="results"></div>
+      </div>
+    </div>
+    <footer>Media is temporary. Your library keeps URLs, collection membership, text findings, and status. The queue runs only while this server is open.</footer>
+  </main>
+</body></html>
