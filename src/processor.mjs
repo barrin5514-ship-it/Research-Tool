@@ -446,7 +446,8 @@ export async function processVideo(job, {
     const researchComplete = Boolean(result.transcript?.trim()) && analyzed.researchStatus === 'complete' && analyzed.sourceVerification === 'completed';
     result.researchStatus = result.transcript?.trim() ? 'requires_verification' : 'visual_only';
     result.extraction.analysisStatus = researchComplete ? 'completed' : 'required';
-    result.extraction.visionStatus = analyzed.provenance?.provider === 'local-evidence-rules' ? 'not_analyzed' : 'analyzed';
+    result.extraction.visionStatus = ['local-evidence-rules','deepseek'].includes(analyzed.provenance?.provider) ? 'not_analyzed' : 'analyzed';
+    if(analyzed.usage)result.usage=analyzed.usage;
     result.extraction.transcriptionStatus = result.transcript ? 'provided_by_local_analyzer' : 'unavailable';
     if (fixturePath) {
       result.title = `TEST FIXTURE: ${job.title || 'synthetic clip'}`;

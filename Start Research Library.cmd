@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-node --use-system-ca --use-env-proxy src/server.mjs
+node --env-file-if-exists=.env --use-system-ca --use-env-proxy src/server.mjs
 pause

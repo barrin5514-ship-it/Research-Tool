@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node --use-system-ca --use-env-proxy src/server.mjs",
+    "start": "node --env-file-if-exists=.env --use-system-ca --use-env-proxy src/server.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "test:media": "node scripts/media-smoke.mjs",
     "doctor": "node --use-system-ca --use-env-proxy scripts/doctor.mjs"

@@ -11,8 +11,11 @@ import { createLocalResearch } from './research.mjs';
 import { createAnalyzer } from './analyzer-integration.mjs';
 import { createWindowsExtraction } from './windows-extraction.mjs';
 import {createEvidenceResearch} from './evidence-research.mjs';
+import {createDeepSeekResearch} from './deepseek.mjs';
+import {recordUsage,readUsage} from './deepseek-usage.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = 12 * 1024 * 1024;
 async function readJson(req) {
@@ -33,7 +36,7 @@ export function createApp({store,queue,localAIEnabled=false,port=5199,onShutdown
       if (req.headers.host !== new URL(origin).host) return send(403,{error:'Invalid local host'});
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',videos:store.list(),queue:queue.status(),csrf,localAIEnabled,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',deepseekUsage:await readUsage(USAGE_FILE),videos:store.list(),queue:queue.status(),csrf,localAIEnabled,
         limitations:['Pilot: at most three videos per batch.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -87,7 +90,7 @@ export async function start() {
     if (!Number.isInteger(port) || port<1024 || port>65535) throw new Error('RESEARCH_PORT must be 1024–65535');
     const concurrency = Number(process.env.RESEARCH_CONCURRENCY || 1);
     const localAIEnabled = process.env.RESEARCH_LOCAL_AI === '1';
-    const analyze = localAIEnabled ? createLocalResearch({baseUrl:process.env.RESEARCH_LOCAL_AI_URL,model:process.env.RESEARCH_LOCAL_MODEL}) : createEvidenceResearch();
+    const analyze = process.env.RESEARCH_PROVIDER==='deepseek' ? createDeepSeekResearch({apiKey:process.env.DEEPSEEK_API_KEY,approved:process.env.RESEARCH_DEEPSEEK_APPROVED==='1',onUsage:record=>recordUsage(USAGE_FILE,record)}) : localAIEnabled ? createLocalResearch({baseUrl:process.env.RESEARCH_LOCAL_AI_URL,model:process.env.RESEARCH_LOCAL_MODEL}) : createEvidenceResearch();
     const extract = process.env.RESEARCH_ANALYZER_ENTRY ? createAnalyzer({entry:process.env.RESEARCH_ANALYZER_ENTRY}) : undefined;
     const nativeExtractionEnabled = process.platform === 'win32' && process.env.RESEARCH_WINDOWS_EXTRACTION !== '0';
     const nativeExtract = nativeExtractionEnabled ? createWindowsExtraction() : undefined;

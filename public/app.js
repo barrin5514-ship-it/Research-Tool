@@ -11,6 +11,7 @@ async function action(path,body={}){
 async function refresh(){const response=await fetch('/api/state');if(!response.ok)throw Error('Dashboard connection failed');state=await response.json();render();}
 function render(){
   const videos=state.videos;
+  $('api-usage').replaceChildren(...(state.deepseekUsage||[]).map(call=>el('p',`DeepSeek ${call.videoId||'call'}: ${call.usage?`${call.usage.inputTokens} input + ${call.usage.outputTokens} output tokens · estimated $${call.usage.estimatedUSD.toFixed(6)} USD`:'usage/cost unavailable'} · ${call.at}`)));
   const counts=[['Discovered',videos.length],['Analyzed',videos.filter(x=>x.status==='completed').length],['Remaining',videos.filter(x=>['pending','running','retry_wait'].includes(x.status)).length],['Needs research',videos.filter(x=>x.status==='needs_analysis').length],['Skipped',videos.filter(x=>x.status==='skipped').length],['Failed',videos.filter(x=>x.status==='failed').length]];
   $('stats').replaceChildren(...counts.map(([label,value])=>{const box=el('div',undefined,'stat');box.append(el('strong',String(value)),el('span',label));return box;}));
   const names=[...new Set(['All','Pennywise','Personafy','Tech','Unassigned',...videos.flatMap(x=>x.collections)])];
