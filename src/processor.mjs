@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { copyFile, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath,pathToFileURL } from 'node:url';
 
 const WORKSPACE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_BYTES = 80 * 1024 * 1024;
@@ -153,7 +153,7 @@ function instagramUrl(value) {
   return `https://www.instagram.com${url.pathname}`;
 }
 
-async function checkedFetch(fetcher, url, options, signal) {
+async function checkedFetch(fetcher, url, options, signal, allowApiError = false) {
   interruption(signal);
   try {
     const response = await abortable(fetcher(url, { ...options, redirect: 'manual', signal }), signal);
@@ -162,7 +162,7 @@ async function checkedFetch(fetcher, url, options, signal) {
       await response.body?.cancel().catch(() => {});
       fail('REDIRECT_REFUSED', 'The local media service returned a redirect; it was not followed.');
     }
-    if (!response.ok) {
+    if (!response.ok && !(allowApiError && response.status!==429)) {
       await response.body?.cancel().catch(() => {});
       fail('COBALT_HTTP', `The local media service returned HTTP ${response.status}.`, {
         retryable: response.status === 408 || response.status === 429 || response.status >= 500,
@@ -207,12 +207,12 @@ async function readBounded(response, limit, signal, onChunk) {
 async function download(job, destination, options, signal) {
   const base = cobaltBase(options.cobaltUrl);
   const url = instagramUrl(job.url ?? job.sourceUrl);
-  const apiSignal = signals(signal, 20_000);
+  const apiSignal = signals(signal, 90_000);
   const response = await checkedFetch(options.fetcher, base.href, {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify({ url, alwaysProxy: true, videoQuality: '480', downloadMode: 'auto' }),
-  }, apiSignal);
+    body: JSON.stringify({ url, downloadMode:'auto',videoQuality:'1080',filenameStyle:'basic',alwaysProxy:false }),
+  }, apiSignal,true);
   const chunks = [];
   await readBounded(response, 64 * 1024, apiSignal, (chunk) => { chunks.push(chunk); });
   let payload;
@@ -227,6 +227,19 @@ async function download(job, destination, options, signal) {
       retryAfterMs: /rate/i.test(code) ? 30_000 : undefined,
     });
   }
+  if (payload.status === 'redirect' && typeof payload.url === 'string') {
+    // Reuse Personafy's existing DNS-pinned, public-HTTPS fetcher read-only.
+    // It sends no cookies/auth and revalidates every redirect/DNS connection.
+    const publicFetch=options.publicFetcher || (await import(pathToFileURL('C:/Users/barri/Documents/ChatGPT/Persona Phi/src/media/public-fetch.ts').href)).publicFetch;
+    const remote=new URL(payload.url);
+    if(remote.protocol!=='https:'||remote.username||remote.password||(remote.port&&remote.port!=='443'))fail('UNSAFE_TUNNEL','Cobalt returned an unsafe public-media address.');
+    const media=await publicFetch(remote.href,{maxBytes:MAX_BYTES,timeoutMs:120_000,headers:{accept:'*/*'},inspect(info){if(info.contentType&&!info.contentType.startsWith('video/')&&info.contentType!=='application/octet-stream')fail('NOT_VIDEO','Cobalt did not return video media.');}});
+    if(media.status<200||media.status>=300)fail('COBALT_HTTP','The public video server refused the download.');
+    if(!media.bytes.length||media.bytes.length>MAX_BYTES)fail('SIZE_LIMIT','The public media size is invalid.');
+    interruption(signal);
+    await writeFile(destination,media.bytes,{flag:'wx'});
+    return {bytes:media.bytes.length};
+  }
   if (payload.status !== 'tunnel' || typeof payload.url !== 'string') {
     fail('TUNNEL_REQUIRED', 'Cobalt did not provide a proxied local video tunnel.');
   }
@@ -235,8 +248,8 @@ async function download(job, destination, options, signal) {
   if (tunnel.origin !== base.origin || tunnel.username || tunnel.password || tunnel.hash || !/^\/tunnel(?:\/|$)/.test(tunnel.pathname)) {
     fail('UNSAFE_TUNNEL', 'The download tunnel must remain on the configured local Cobalt origin.');
   }
-  const mediaSignal = signals(signal, 60_000);
-  const media = await checkedFetch(options.fetcher, tunnel.href, { method: 'GET' }, mediaSignal);
+  const mediaSignal = signals(signal, 120_000);
+  const media = await checkedFetch(options.fetcher, tunnel.href, { method: 'GET',headers:{accept:'*/*'} }, mediaSignal);
   const contentType = media.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
   if (contentType && !contentType.startsWith('video/') && contentType !== 'application/octet-stream') {
     await media.body?.cancel().catch(() => {});
@@ -315,6 +328,7 @@ export async function processVideo(job, {
   ffprobe = 'ffprobe',
   signal,
   fetcher = fetch,
+  publicFetcher,
   fixturePath,
   analyze,
   extract,
@@ -337,7 +351,7 @@ export async function processVideo(job, {
       await copyFile(fixture, input, constants.COPYFILE_EXCL);
       bytes = info.size;
     } else {
-      const downloaded = await download(job, input, { cobaltUrl, fetcher }, attemptSignal);
+      const downloaded = await download(job, input, { cobaltUrl, fetcher,publicFetcher }, attemptSignal);
       if (downloaded.skipped) {
         result.extraction.analysisStatus = 'skipped';
         result.extraction.reason = downloaded.skipped;

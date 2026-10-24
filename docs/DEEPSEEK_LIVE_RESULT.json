@@ -1,0 +1,32 @@
+{
+  "requestCount": 1,
+  "httpStatus": 200,
+  "parsed": true,
+  "rawUsage": {
+    "prompt_tokens": 367,
+    "completion_tokens": 311,
+    "total_tokens": 678,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 367
+  },
+  "costEstimate": {
+    "inputTokens": 367,
+    "outputTokens": 311,
+    "cachedInputTokens": 0,
+    "totalTokens": 678,
+    "estimatedUSD": 0.00048329999999999993,
+    "rates": {
+      "input": 0.3,
+      "cachedInput": 0.006,
+      "output": 1.2,
+      "checked": "2026-10-24"
+    },
+    "costBasis": "Conservative peak rates; not an invoice"
+  },
+  "verification": "NOT VERIFIED",
+  "dashboardId": "SyntheticDeepSeekOneShot",
+  "actualInvoiceCost": "Not returned by chat-completion API; cost is calculated from reported tokens and published rates."
+}

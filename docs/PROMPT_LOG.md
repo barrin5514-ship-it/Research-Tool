@@ -941,3 +941,31 @@ try{
 
 ```
 
+
+## Key-saved confirmation and renewed one-call instruction
+
+User confirmed the key was saved correctly, its format checked privately, and Git ignores the file. User instruction: Key saved. Proceed with the one approved synthetic DeepSeek test call (max USD0.01) and report the results.
+
+Execution: exactly one request returned HTTP200;367 input tokens,311 output tokens; result parsed and was saved as an explicitly synthetic dashboard item. No further paid call is authorized.
+
+## Approved single real Instagram processing request
+
+Approved: process ONE real public Instagram video end to end (Cobalt download → Whisper → OCR → DeepSeek → dashboard). Max one DeepSeek call, max $0.01. I will provide the link. Delete the video after processing. Report: what was transcribed, DeepSeek's recommendations, actual tokens and cost, and anything that failed. Update PROMPT_LOG.md.
+
+Source: https://www.instagram.com/p/De2y_j8AHd1/
+
+Execution outcome: failed; paid requests: 0; Cobalt issue: error.api.fetch.fail; remaining scratch entries: 0. Full evidence in docs/INSTAGRAM_REAL_TEST.json. No further paid calls authorized.
+
+## Personafy parity request and retest authorization
+
+User reports Personafy can download Instagram using Cobalt. Inspect its endpoint, headers, auth, request body, cookies and URL handling read-only; list exact differences; update only Research Agent adapter; reference secret file locations without copying secrets if needed; retest the same link with at most one DeepSeek call under USD0.01 only if download succeeds; run tests, commit, update prompt log and report. No Personafy/Cobalt modifications. No secrets are required by the inspected adapter. A separately guarded attempt records this new authorization.
+
+## Approved single real Instagram processing request
+
+Approved: process ONE real public Instagram video end to end (Cobalt download → Whisper → OCR → DeepSeek → dashboard). Max one DeepSeek call, max $0.01. I will provide the link. Delete the video after processing. Report: what was transcribed, DeepSeek's recommendations, actual tokens and cost, and anything that failed. Update PROMPT_LOG.md.
+
+Source: https://www.instagram.com/p/De2y_j8AHd1/
+
+Execution outcome: failed; paid requests: 0; Cobalt issue: error.api.fetch.fail; remaining scratch entries: 0. Full evidence in docs/INSTAGRAM_COBALT_PARITY_TEST.json. No further paid calls authorized.
+
+Personafy control outcome: its actual read-only Cobalt adapter also returned error.api.fetch.fail for the same link and same instance. Updated Research Agent request options match, tests55/55 pass, download failed, paid calls0, tokens0, costUSD0, scratch empty. No secrets copied and no external project files modified. See docs/COBALT_PERSONAFY_COMPARISON.md.

@@ -26,7 +26,7 @@ async function setup(t) {
   };
 }
 
-test('requests proxy mode and refuses a remote tunnel before downloading', async (t) => {
+test('matches Personafy request options and refuses a forged remote tunnel', async (t) => {
   const state = await setup(t);
   let calls = 0;
   await assert.rejects(processVideo(job, {
@@ -35,7 +35,7 @@ test('requests proxy mode and refuses a remote tunnel before downloading', async
       calls += 1;
       assert.equal(url, 'http://127.0.0.1:9100/');
       assert.equal(options.redirect, 'manual');
-      assert.equal(JSON.parse(options.body).alwaysProxy, true);
+      assert.deepEqual(JSON.parse(options.body),{url:job.url,downloadMode:'auto',videoQuality:'1080',filenameStyle:'basic',alwaysProxy:false});
       return json({ status: 'tunnel', url: 'https://example.com/tunnel?id=x' });
     },
   }), { code: 'UNSAFE_TUNNEL', retryable: false });
@@ -52,6 +52,16 @@ test('refuses a different loopback port and an unrelated same-origin endpoint', 
     }), { code: 'UNSAFE_TUNNEL' });
   }
   await state.clean();
+});
+test('accepts Cobalt public redirect media through the guarded fetcher',async(t)=>{
+ const state=await setup(t);let mediaRequests=0;
+ await assert.rejects(processVideo(job,{scratchRoot:state.scratchRoot,ffprobe:'research-agent-ffprobe-does-not-exist',fetcher:async()=>json({status:'redirect',url:'https://video.cdninstagram.com/public.mp4'}),publicFetcher:async(url,options)=>{mediaRequests++;assert.equal(url,'https://video.cdninstagram.com/public.mp4');assert.equal(options.maxBytes,80*1024*1024);assert.equal(options.timeoutMs,120000);return{status:200,bytes:new Uint8Array([1,2,3])};}}),{code:'MEDIA_TOOL_UNAVAILABLE'});
+ assert.equal(mediaRequests,1);await state.clean();
+});
+test('reads Cobalt JSON failure reason on non-success HTTP status',async(t)=>{
+ const state=await setup(t);
+ await assert.rejects(processVideo(job,{scratchRoot:state.scratchRoot,fetcher:async()=>json({status:'error',error:{code:'error.api.fetch.fail'}},{status:400})}),{code:'COBALT_REJECTED'});
+ await state.clean();
 });
 
 test('does not follow API or media redirects', async (t) => {

@@ -1,0 +1,12 @@
+{
+  "sourceUrl": "https://www.instagram.com/p/De2y_j8AHd1/",
+  "paidCalls": 0,
+  "httpStatus": null,
+  "rawUsage": null,
+  "cobaltIssue": "error.api.fetch.fail",
+  "analysisIssue": null,
+  "status": "failed",
+  "failureCode": "COBALT_REJECTED",
+  "scratchEntriesAfter": [],
+  "costNote": "Chat API does not return an invoice charge. usage.estimatedUSD uses conservative published peak prices; actual billed amount is unverified."
+}
