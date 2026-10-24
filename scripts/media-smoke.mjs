@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat,copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { processVideo } from '../src/processor.mjs';
@@ -56,7 +56,12 @@ try {
     if (temporaryEvidence) await assert.rejects(stat(temporaryEvidence), { code: 'ENOENT' });
     results.push({ fixture: color, status: outcome.status, framesExtracted: outcome.result.extraction.framesExtracted, audioExtracted: outcome.result.extraction.audioExtracted });
   }
-  console.log(JSON.stringify({ label: 'TEST FIXTURE ONLY', scope: 'Three synthetic clips: local decode, frame extraction, optional audio, missing-analysis status, cleanup. No Instagram or AI validation.', results }, null, 2));
+  const streaming=path.join(directory,'streaming.webm');
+  await new Promise((ok,no)=>{const child=spawn(ffmpeg,['-nostdin','-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=blue:s=320x240:r=10:d=1','-c:v','libvpx','-threads','2','-live','1','-y',streaming],{windowsHide:true,stdio:'ignore'});child.once('error',no);child.once('close',code=>code===0?ok():no(Error('Streaming fixture failed')));});
+  const browserOutcome=await processVideo({url:'https://www.instagram.com/p/SYNTHETIC/'},{scratchRoot,ffmpeg,ffprobe,fetcher:async()=>Response.json({status:'error',error:{code:'error.api.fetch.fail'}}),acquireFallback:async({inputPath})=>{await copyFile(streaming,inputPath);return {bytes:(await stat(streaming)).size,method:'browser_recording'};}});
+  assert.equal(browserOutcome.status,'needs_analysis');assert.equal(browserOutcome.result.extraction.mode,'browser_recording');assert.ok(browserOutcome.result.extraction.durationSeconds>0);assert.deepEqual(await readdir(scratchRoot),[]);
+  results.push({fixture:'streaming WebM without duration metadata',status:browserOutcome.status,framesExtracted:browserOutcome.result.extraction.framesExtracted,cleanupVerified:true});
+  console.log(JSON.stringify({ label: 'TEST FIXTURE ONLY', scope: 'Three synthetic clips plus streaming WebM browser-remux regression: local decode, frames, audio, cleanup. No Instagram or AI validation.', results }, null, 2));
 } finally {
   const resolved = path.resolve(directory);
   assert.equal(path.dirname(resolved), workspace);

@@ -343,7 +343,7 @@ export async function processVideo(job, {
   const attemptSignal = signals(signal, ATTEMPT_MS);
   try {
     await writeFile(path.join(attempt, OWNER_FILE), JSON.stringify(owner), { flag: 'wx' });
-    const input = path.join(attempt, 'input.mp4');
+    let input = path.join(attempt, 'input.mp4');
     let bytes;
     if (fixturePath) {
       const fixture = await safeWorkspacePath(fixturePath, { directory: false });
@@ -369,6 +369,14 @@ export async function processVideo(job, {
         return { status: 'skipped', result };
       }
       bytes = downloaded.bytes;
+    }
+    // MediaRecorder's streaming WebM often has no duration header. Remux it
+    // locally (without re-encoding) before the ordinary bounded media probe.
+    if(result.extraction.mode.startsWith('browser_recording')){
+      const normalized=path.join(attempt,'normalized.webm');
+      await command(ffmpeg,['-nostdin','-hide_banner','-loglevel','error','-protocol_whitelist','file','-format_whitelist','matroska,webm','-i',input,'-map','0:v:0','-map','0:a?','-c','copy','-f','webm','-y',normalized],attemptSignal);
+      if((await stat(normalized)).size>MAX_BYTES)fail('SIZE_LIMIT','Normalized recording exceeds its size limit.');
+      input=normalized;
     }
     const rawProbe = await command(ffprobe, [
       '-v', 'error', '-protocol_whitelist', 'file', '-format_whitelist', 'mov,matroska,webm', '-show_entries',

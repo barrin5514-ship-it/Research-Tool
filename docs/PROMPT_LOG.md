@@ -993,3 +993,13 @@ Build option 1: a browser-capture fallback for Research Agent, following Persona
 Implemented independent profile and dashboard sign-in controls, read-only reuse of installed capture code, optional existing yt-dlp, single concurrency, polite spacing, owned temporary storage and paid-call guard. No installations. Initial restricted test run could not access loopback; rerun with loopback access passed all 61 tests. No live capture result yet.
 
 Final pre-live verification: 62 tests passed, 0 failed. Installed browser detected; yt-dlp absent and skipped. Separate profile and .env are Git-ignored. No paid calls made during tests.
+
+## Approved single real Instagram processing request
+
+Approved: process ONE real public Instagram video end to end (Cobalt download → Whisper → OCR → DeepSeek → dashboard). Max one DeepSeek call, max $0.01. I will provide the link. Delete the video after processing. Report: what was transcribed, DeepSeek's recommendations, actual tokens and cost, and anything that failed. Update PROMPT_LOG.md.
+
+Source: https://www.instagram.com/p/De2y_j8AHd1/
+
+Execution outcome: failed; paid requests: 0; Cobalt issue: error.api.fetch.fail; remaining scratch entries: 0. Full evidence in docs/INSTAGRAM_BROWSER_FALLBACK_TEST.json. No further paid calls authorized.
+
+Initial live fallback: Cobalt rejected the post, then browser capture returned media, but the media probe rejected missing/invalid duration metadata. Zero paid calls; scratch empty. Added a local streaming-WebM remux and synthetic regression check before retrying the same video. A durable paid-call guard now also prevents another process/run from spending the one approved call.

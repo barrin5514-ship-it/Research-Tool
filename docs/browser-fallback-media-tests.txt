@@ -1,0 +1,34 @@
+
+> instagram-research-library@0.1.0 test:media
+> node scripts/media-smoke.mjs
+
+{
+  "label": "TEST FIXTURE ONLY",
+  "scope": "Three synthetic clips plus streaming WebM browser-remux regression: local decode, frames, audio, cleanup. No Instagram or AI validation.",
+  "results": [
+    {
+      "fixture": "red",
+      "status": "needs_analysis",
+      "framesExtracted": 1,
+      "audioExtracted": false
+    },
+    {
+      "fixture": "green",
+      "status": "needs_analysis",
+      "framesExtracted": 3,
+      "audioExtracted": false
+    },
+    {
+      "fixture": "blue",
+      "status": "needs_analysis",
+      "framesExtracted": 6,
+      "audioExtracted": true
+    },
+    {
+      "fixture": "streaming WebM without duration metadata",
+      "status": "needs_analysis",
+      "framesExtracted": 1,
+      "cleanupVerified": true
+    }
+  ]
+}
