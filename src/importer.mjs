@@ -93,6 +93,13 @@ function parseJson(text, filename, add, warn) {
   function post(entry, collections, direct = false) {
     if (typeof entry === 'string' && direct) { add(entry, '', collections); return; }
     if (!isObject(entry)) throw new Error('Unsupported saved-post entry: expected an object.');
+    if(Array.isArray(entry.label_values)||Array.isArray(entry.dict)){
+      const fields=entry.label_values??entry.dict;
+      const link=fields.find(x=>x?.label==='URL');
+      const caption=fields.find(x=>x?.label==='Caption');
+      if(typeof (link?.href||link?.value)!=='string')throw new Error('Labeled saved-post record has no URL.');
+      add(link.href||link.value,plainText(caption?.value),collections);return;
+    }
     const saved = entry.string_map_data?.['Saved on'];
     const title = plainText(entry.caption ?? entry.string_map_data?.Caption?.value);
     if (typeof saved?.href === 'string') { add(saved.href, title, collections); return; }
@@ -127,6 +134,13 @@ function parseJson(text, filename, add, warn) {
     if (!Array.isArray(entries)) throw new Error('Saved collections must be an array or a named collection map.');
     for (const entry of entries) {
       if (!isObject(entry)) throw new Error('Unsupported collection record.');
+      if(Array.isArray(entry.label_values)){
+        const name=plainText(entry.label_values.find(x=>x?.label==='Name')?.value);
+        const media=entry.label_values.find(x=>x?.title==='Media'&&Array.isArray(x.dict));
+        if(!name)warn('A collection record has no explicit name; its posts remain unassigned.');
+        if(!media)throw new Error('Labeled collection record has no Media group.');
+        posts(media.dict,name?[name]:[],false);continue;
+      }
       const name = plainText(entry.name ?? entry.collection_name ?? entry.string_map_data?.Name?.value);
       // title commonly names a creator in saved posts; it is never membership evidence.
       if (!name) warn('A collection record has no explicit name; its posts remain unassigned.');
@@ -168,6 +182,7 @@ export function parseExport(text, { filename = '' } = {}) {
   let duplicates = 0;
   const warn = message => warnings.add(message);
   const add = (raw, title, memberships) => {
+    memberships=memberships.map(name=>['Pennywise','Personafy','Tech'].find(project=>project.toLowerCase()===name.toLowerCase())||name);
     const normalized = normalizeInstagramUrl(raw);
     const originalPath = new URL(decodeEntities(raw.trim())).pathname.replace(/\/$/, '');
     const originalUrl = `https://www.instagram.com${originalPath}/`;

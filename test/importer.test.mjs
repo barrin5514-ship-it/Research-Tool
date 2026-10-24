@@ -107,3 +107,12 @@ test('input limit counts UTF-8 bytes and supports BOM', () => {
   assert.throws(() => parseExport('💡'.repeat(Math.floor(MAX_EXPORT_BYTES / 4) + 1)), /10 MiB/);
   assert.equal(parseExport('\uFEFF{"saved_saved_media":[]}').items.length, 0);
 });
+
+test('imports current label_values export and only explicit Media members, never owner links',()=>{
+ const fields=[{label:'URL',href:'https://www.instagram.com/reel/Modern123/'},{label:'Caption',value:'An example'},{title:'Owner',dict:[{dict:[{label:'URL',value:'https://evil.example'},{label:'Name',value:'Pennywise'}]}]}];
+ const posts=parseExport(JSON.stringify([{label_values:fields}]),{filename:'saved_posts.json'});
+ assert.equal(posts.items.length,1);assert.deepEqual(posts.items[0].collections,[]);
+ const collections=parseExport(JSON.stringify([{label_values:[{label:'Name',value:' tech '},{title:'Media',dict:[{dict:fields},{dict:fields}]}]},{label_values:[{label:'Name',value:'Dev Squad AI'},{title:'Media',dict:[{dict:fields}]}]}]),{filename:'saved_collections.json'});
+ assert.equal(collections.items.length,1);assert.deepEqual(collections.items[0].collections,['Tech','Dev Squad AI']);assert.equal(collections.items[0].title,'An example');
+ assert.throws(()=>parseExport(JSON.stringify([{label_values:[{label:'Name',value:'Tech'}]}]),{filename:'saved_collections.json'}),/Media/);
+});

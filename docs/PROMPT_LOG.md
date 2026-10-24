@@ -1015,3 +1015,25 @@ Execution outcome: needs_analysis; paid requests: 1; Cobalt issue: error.api.fet
 Final live result: Cobalt still returned error.api.fetch.fail; anonymous browser playback succeeded without using any signed-in profile. Captured 55.483 seconds (32,775,042 bytes), extracted six frames and audio, obtained Whisper transcript and one OCR text entry; OCR failed for a sampled frame. DeepSeek returned HTTP 200 and parsed successfully. Exactly one paid call: 525 input + 929 output = 1,454 measured tokens. Conservative estimated cost USD 0.0012723, below USD 0.01; actual billed charge is not returned by the API. Result saved as needs_analysis/requires_verification, with nine NOT VERIFIED claims and three project recommendations. No further paid calls. Scratch directory verified empty. Full live evidence: docs/INSTAGRAM_BROWSER_FALLBACK_TEST.json. Final automated suite: 63 passed, 0 failed; four local synthetic media scenarios passed. Signed-in live capture remains unverified because public capture succeeded.
 
 Final dashboard verification: HTTP 200; rendered browser sign-in buttons, live transcript, nine NOT VERIFIED claims, three recommendations and usage line (525 input + 929 output; estimated USD 0.001272) confirmed in the browser. Queue paused, concurrency one; scratch empty. Separate signed-in capture was not required and remains live-untested. Optional yt-dlp ordering/config isolation verified using a stand-in; no yt-dlp installed.
+
+## Import-only export and dashboard request
+
+My Instagram export is downloaded and unzipped in my Downloads folder. The files are in your_instagram_activity\saved (saved_collections and saved_posts).
+1. Do not copy the export into the Research Agent folder or commit it.
+2. Import both files through the existing importer. Report how many posts and collections were found, and whether Pennywise, Personafy and Tech came through correctly.
+3. Do not process any videos yet. Import and report only.
+4. Add Dev Squad AI as a fourth project for recommendations. It is my multi-provider AI coding agent dashboard (Codex builds, Claude reviews). Match ideas about AI coding agents, multi-agent workflows, code review, prompting and developer tools to it. Recommendations only: do not read or modify the Dev Squad AI project.
+5. Dashboard updates: a short summary at the top of each result, a cleaner layout, and a New ideas section for useful ideas that do not fit any project. Do not force project matches.
+6. Run the tests, commit, and update PROMPT_LOG.md.
+
+The initial version of this request omitted Dev Squad AI; the updated instruction above superseded it before completion.
+
+## Additional recommendation project
+
+Add Sims 4 Upgrades as a recommendation project. There is no Instagram collection for it. Flag any idea from any video that could be applied to upgrading The Sims 4: mods, scripting, custom content, AI tools, graphics, automation or gameplay improvements.
+
+Implementation and import result: added current Instagram label_values/Media export support to the existing parser, ignoring nested creator/owner links. Read both original files in place and POSTed them to the existing local importer; no raw export copy was written into the project. Saved-post file: 362 posts. Collections file: 329 unique posts across 8 named collections. Combined: 370 unique posts, including 8 found only in collections. Target memberships: Pennywise 0, Personafy 0, Tech 4 (export name tech normalized to Tech). The two previous research records remained unchanged; total library 372. No imported videos processed, queue paused, source-file hashes unchanged, no new paid calls. Detailed aggregate import report is private under ignored .research-data; no raw export or post list is committed.
+
+Added owner-described Dev Squad AI and Sims 4 Upgrades recommendation contexts without accessing external projects. Useful unmatched ideas stay New ideas instead of being forced into Tech. Collection membership is not evidence of project relevance. Dashboard has bounded summary previews, expandable evidence preserving open state, and 25-card pagination. Added tests for modern export shapes, owner-link exclusion, summaries, unmatched ideas, developer workflows and cross-collection Sims 4 applications. Final suite: 68 passed, 0 failed; no live video processing or paid provider calls in this task.
+
+Final import/UI checks: importing the same original files again added 0 duplicates and retained 372 library entries. Queue remained paused, all 370 imports stayed pending with zero attempts, source hashes unchanged and paid-call ledger unchanged. Browser verification confirmed summary previews, expandable evidence, New ideas and the Sims 4 Upgrades project label. Private screenshot stays in ignored .research-data. Tech's dashboard count includes the older synthetic test; the real export contributed 4 Tech posts.

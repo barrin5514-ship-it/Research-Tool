@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Research Library</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script>
+  <title>Research Library</title><link rel="stylesheet" href="/style.css"><script src="/app.js" type="module"></script>
 </head>
 <body>
   <header><div class="brand">R<span>Research Library</span></div><span class="badge">LOCAL · THREE-VIDEO PILOT</span></header>
@@ -21,6 +21,7 @@
           <details><summary>Or add up to three public links</summary><label for="links">One Instagram video link per line</label><textarea id="links" rows="3" placeholder="https://www.instagram.com/reel/…"></textarea><div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div></details>
           <p class="small">No Instagram password or cookies are requested. Reimporting an updated export preserves previous work. Missing old links are retained as history.</p>
         </section>
+        <section class="panel ideas-panel"><h2>New ideas</h2><p>Useful ideas without a supported match to Pennywise, Personafy, Tech, Dev Squad AI or Sims 4 Upgrades. Every video can suggest ideas for any project; collection membership does not determine relevance.</p><div id="new-ideas"></div></section>
         <section class="toolbar"><div><h2>Research inbox</h2><p id="queue-state" class="small">Loading…</p></div><div><button id="start">Process up to 3 videos</button><button id="pause" class="secondary">Pause queue</button></div></section>
         <div id="message" role="status" aria-live="polite"></div><div id="results"></div>
       </div>
