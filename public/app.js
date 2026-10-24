@@ -10,6 +10,10 @@ async function action(path,body={}){
 }
 async function refresh(){const response=await fetch('/api/state');if(!response.ok)throw Error('Dashboard connection failed');state=await response.json();render();}
 function render(){
+  const browser=state.instagramBrowser;
+  $('instagram-status').textContent=!browser?.available?'Browser capture unavailable':browser.windowOpen?'Sign-in browser is open. Close it before processing.':browser.ownerConfirmed?'Sign-in confirmed by you; access will be checked during capture.':'Instagram is not connected. Public capture will be attempted first.';
+  $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
+  $('instagram-confirm').disabled=!browser?.available||state.queue.active>0;
   const videos=state.videos;
   $('api-usage').replaceChildren(...(state.deepseekUsage||[]).map(call=>el('p',`DeepSeek ${call.videoId||'call'}: ${call.usage?`${call.usage.inputTokens} input + ${call.usage.outputTokens} output tokens · estimated $${call.usage.estimatedUSD.toFixed(6)} USD`:'usage/cost unavailable'} · ${call.at}`)));
   const counts=[['Discovered',videos.length],['Analyzed',videos.filter(x=>x.status==='completed').length],['Remaining',videos.filter(x=>['pending','running','retry_wait'].includes(x.status)).length],['Needs research',videos.filter(x=>x.status==='needs_analysis').length],['Skipped',videos.filter(x=>x.status==='skipped').length],['Failed',videos.filter(x=>x.status==='failed').length]];
@@ -50,4 +54,6 @@ $('import').onclick=async()=>{try{const files=[...$('files').files];if(!files.le
 $('add-links').onclick=()=>action('/api/links',{links:$('links').value,collection:$('manual-collection').value}).then(result=>{if(result)message(`${result.added} new links added; ${result.existing} already known.`);}).catch(()=>{});
 $('start').onclick=()=>action('/api/start').then(result=>{if(result)message(result.message||'Pilot batch started. Up to three videos will be attempted.');}).catch(()=>{});
 $('pause').onclick=()=>action('/api/pause').then(()=>message('Queue paused. Current videos finish and clean up; no new videos start.')).catch(()=>{});
+$('instagram-connect').onclick=()=>action('/api/instagram/connect').then(r=>{if(r)message(r.message);}).catch(()=>{});
+$('instagram-confirm').onclick=()=>action('/api/instagram/confirm').then(r=>{if(r)message(r.message);}).catch(()=>{});
 refresh().catch(e=>message(e.message));setInterval(()=>refresh().catch(()=>message('The local server is unavailable. Restart it to resume your library.')),3000);

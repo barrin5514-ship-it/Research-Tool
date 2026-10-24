@@ -969,3 +969,27 @@ Source: https://www.instagram.com/p/De2y_j8AHd1/
 Execution outcome: failed; paid requests: 0; Cobalt issue: error.api.fetch.fail; remaining scratch entries: 0. Full evidence in docs/INSTAGRAM_COBALT_PARITY_TEST.json. No further paid calls authorized.
 
 Personafy control outcome: its actual read-only Cobalt adapter also returned error.api.fetch.fail for the same link and same instance. Updated Research Agent request options match, tests55/55 pass, download failed, paid calls0, tokens0, costUSD0, scratch empty. No secrets copied and no external project files modified. See docs/COBALT_PERSONAFY_COMPARISON.md.
+
+## Read-only Instagram login tracing request
+
+Personafy is logged into Instagram, but your report says its Cobalt adapter sends no cookies or auth. Find where Personafy's Instagram login is actually used. READ-ONLY:
+1. Does Personafy use a different downloader or method for Instagram (not Cobalt)?
+2. Is Cobalt configured with Instagram cookies (e.g., a cookies file or COOKIE_PATH setting)? If so, are they present and possibly expired?
+3. Explain in plain English how Personafy successfully downloads Instagram videos, and how the Research Agent can use the same method.
+Do not modify Personafy or Cobalt. Do not copy or display any cookies or login data. No paid calls. Update PROMPT_LOG.md.
+
+Outcome: login is used by a separate browser-recording fallback. Read-only capture-method counts confirm20 signed-in browser saves and29 Cobalt saves (not necessarily all videos); no record for the tested post. COOKIE_PATH absent in inspected Cobalt settings; usual cookie file absent. Browser profile/metadata exist, metadata does not mark expiry; live validity not tested. No cookie values read, no profile launched, no external writes or paid calls. Details: docs/INSTAGRAM_LOGIN_TRACE.md.
+
+## Browser-capture fallback request
+
+Build option 1: a browser-capture fallback for Research Agent, following Personafy's method (Cobalt → yt-dlp if installed → browser capture → signed-in browser capture).
+- Use a SEPARATE browser profile stored inside Research Agent. Never use or copy Personafy's profile.
+- Add a dashboard button that opens this browser so I can sign into Instagram myself, once.
+- One video at a time, with polite delays between videos. Delete recordings after processing.
+- Do not modify Personafy or Cobalt. Request approval before installing anything.
+- Add tests, commit, and update PROMPT_LOG.md.
+- Then retest the same Instagram link. Max one DeepSeek call, max $0.01, only if capture succeeds.
+
+Implemented independent profile and dashboard sign-in controls, read-only reuse of installed capture code, optional existing yt-dlp, single concurrency, polite spacing, owned temporary storage and paid-call guard. No installations. Initial restricted test run could not access loopback; rerun with loopback access passed all 61 tests. No live capture result yet.
+
+Final pre-live verification: 62 tests passed, 0 failed. Installed browser detected; yt-dlp absent and skipped. Separate profile and .env are Git-ignored. No paid calls made during tests.

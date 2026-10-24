@@ -9,7 +9,7 @@ const WORKSPACE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const MAX_BYTES = 80 * 1024 * 1024;
 const MAX_SECONDS = 180;
 const MAX_FRAMES = 6;
-const ATTEMPT_MS = 180_000;
+const ATTEMPT_MS = 360_000;
 const RESERVED = new Set(['.git', '.agents', '.codex', '.aws']);
 const OWNER_TAG = 'research-agent-video-attempt-v1';
 const OWNER_FILE = '.research-agent-owner.json';
@@ -333,6 +333,7 @@ export async function processVideo(job, {
   analyze,
   extract,
   nativeExtract,
+  acquireFallback,
 } = {}) {
   interruption(signal);
   const root = await safeWorkspacePath(scratchRoot, { create: true });
@@ -351,7 +352,17 @@ export async function processVideo(job, {
       await copyFile(fixture, input, constants.COPYFILE_EXCL);
       bytes = info.size;
     } else {
-      const downloaded = await download(job, input, { cobaltUrl, fetcher,publicFetcher }, attemptSignal);
+      let downloaded;
+      try { downloaded = await download(job, input, { cobaltUrl, fetcher,publicFetcher }, attemptSignal); }
+      catch(error) {
+        interruption(attemptSignal);
+        if(!acquireFallback || !['COBALT_UNAVAILABLE','COBALT_REJECTED','COBALT_HTTP','TUNNEL_REQUIRED'].includes(error.code))throw error;
+        await rm(input,{force:true});
+        try { downloaded=await acquireFallback({job,attemptPath:attempt,inputPath:input,signal:attemptSignal}); }
+        catch(fallbackError){interruption(attemptSignal);throw new ProcessingError(fallbackError.code||'BROWSER_CAPTURE_FAILED',fallbackError.message,{retryable:false});}
+        result.extraction.mode=downloaded.method;
+        result.extraction.warnings.push('Cobalt failed; an alternative acquisition method was used. Browser recordings reproduce playback and are not original downloads.');
+      }
       if (downloaded.skipped) {
         result.extraction.analysisStatus = 'skipped';
         result.extraction.reason = downloaded.skipped;

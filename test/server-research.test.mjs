@@ -30,6 +30,18 @@ test('AI suggestions cannot assert verified claims or invent retained citations'
   const result=normalizeResearch({summary:'Potential idea',claims:[null,{claim:'Guaranteed returns',status:'VERIFIED',sources:['https://fake.example']}],recommendations:[{project:'Pennywise',application:'Paper test',estimatedCost:'$0 (model estimate)'}]}, {model:'test',job:{title:'Clip',url:'https://www.instagram.com/p/abc/'}});
   assert.equal(result.verification,'NOT VERIFIED');assert.equal(result.transcript,null);assert.equal(result.claims[0].status,'NOT VERIFIED');assert.deepEqual(result.claims[0].sources,[]);assert.equal(result.provenance.independentVerification,false);
 });
+
+test('Instagram connection buttons require local CSRF and expose no profile or credentials',async()=>{
+ const store=new LibraryStore(':memory:');const queue=new ResearchQueue(store,async()=>({status:'needs_analysis',result:{}}));let connected=0,confirmed=0;
+ const server=createApp({store,queue,browserSession:{status:async()=>({available:true,ownerConfirmed:false,windowOpen:false}),connect:async()=>{connected++;return {message:'Opened'};},confirm:async()=>{confirmed++;return {message:'Confirmed'};}}});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}`;
+ try{const state=await(await fetch(base+'/api/state')).json();assert.deepEqual(state.instagramBrowser,{available:true,ownerConfirmed:false,windowOpen:false});
+ const send=(path,token)=>fetch(base+path,{method:'POST',headers:{origin:base,'content-type':'application/json','x-research-token':token},body:'{}'});
+ assert.equal((await send('/api/instagram/connect','bad')).status,403);assert.equal(connected,0);
+ assert.equal((await send('/api/instagram/connect',state.csrf)).status,200);assert.equal(connected,1);
+ assert.equal((await send('/api/instagram/confirm',state.csrf)).status,200);assert.equal(confirmed,1);
+ }finally{await new Promise(r=>server.close(r));store.close();}
+});
 test('research provider permits only explicit local models and origins',async()=>{
   for(const url of ['https://api.openai.com','http://user:secret@localhost:1234','http://localhost:1234/a','http://192.168.1.2:1234'])assert.throws(()=>validateLocalUrl(url));
   assert.equal(validateLocalUrl('http://127.0.0.1:1234/'),'http://127.0.0.1:1234');assert.throws(()=>createLocalResearch({}),/explicit/);
