@@ -10,7 +10,7 @@ const upstream='C:/Users/barri/Documents/ChatGPT/Persona Phi/src/media/';
 const problem=(code,message)=>Object.assign(new Error(message),{code,retryable:false});
 
 /** Reuse installed capture tooling read-only. Never acquire Personafy's session. */
-export async function createBrowserFallback({capture,profileProcesses,browserPath,launch,ytDlp,now=Date.now,wait=delay,dataRoot=join(ROOT,'.research-data','browser-profiles')}={}){
+export async function createBrowserFallback({capture,profileProcesses,browserPath,launch,ytDlp,runner=run,now=Date.now,wait=delay,dataRoot=join(ROOT,'.research-data','browser-profiles')}={}){
   const relative=resolve(dataRoot).slice(ROOT.length);
   if(!resolve(dataRoot).startsWith(ROOT+'\\')&&!resolve(dataRoot).startsWith(ROOT+'/'))throw problem('UNSAFE_PROFILE','Browser profiles must stay inside Research Agent.');
   let cursor=ROOT;
@@ -53,7 +53,7 @@ export async function createBrowserFallback({capture,profileProcesses,browserPat
       await save({...meta,day,count:count+1,lastAttempt:now()});
       if(ytDlp){
         try{
-          await run(ytDlp,['--ignore-config','--no-cache-dir','--no-playlist','--no-warnings','--no-part','--no-mtime','--max-filesize',String(MAX),'-f','bv*+ba/b','--merge-output-format','mp4','-o',join(attemptPath,'download.%(ext)s'),'--',source.href],{cwd:attemptPath,windowsHide:true,shell:false,timeout:60_000,maxBuffer:65536,signal});
+          await runner(ytDlp,['--ignore-config','--no-cache-dir','--no-playlist','--no-warnings','--no-part','--no-mtime','--max-filesize',String(MAX),'-f','bv*+ba/b','--merge-output-format','mp4','-o',join(attemptPath,'download.%(ext)s'),'--',source.href],{cwd:attemptPath,windowsHide:true,shell:false,timeout:60_000,maxBuffer:65536,signal});
           const files=(await readdir(attemptPath)).filter(x=>/^download\.(mp4|webm|mkv)$/.test(x));
           if(files.length===1){const file=join(attemptPath,files[0]);const size=(await stat(file)).size;if(size>0&&size<=MAX){await writeFile(inputPath,await readFile(file),{flag:'wx'});return {bytes:size,method:'yt-dlp'};}}
         }catch{signal?.throwIfAborted();}

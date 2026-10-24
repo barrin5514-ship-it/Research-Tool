@@ -1003,3 +1003,15 @@ Source: https://www.instagram.com/p/De2y_j8AHd1/
 Execution outcome: failed; paid requests: 0; Cobalt issue: error.api.fetch.fail; remaining scratch entries: 0. Full evidence in docs/INSTAGRAM_BROWSER_FALLBACK_TEST.json. No further paid calls authorized.
 
 Initial live fallback: Cobalt rejected the post, then browser capture returned media, but the media probe rejected missing/invalid duration metadata. Zero paid calls; scratch empty. Added a local streaming-WebM remux and synthetic regression check before retrying the same video. A durable paid-call guard now also prevents another process/run from spending the one approved call.
+
+## Approved single real Instagram processing request
+
+Approved: process ONE real public Instagram video end to end (Cobalt download → Whisper → OCR → DeepSeek → dashboard). Max one DeepSeek call, max $0.01. I will provide the link. Delete the video after processing. Report: what was transcribed, DeepSeek's recommendations, actual tokens and cost, and anything that failed. Update PROMPT_LOG.md.
+
+Source: https://www.instagram.com/p/De2y_j8AHd1/
+
+Execution outcome: needs_analysis; paid requests: 1; Cobalt issue: error.api.fetch.fail; remaining scratch entries: 0. Full evidence in docs/INSTAGRAM_BROWSER_FALLBACK_TEST.json. No further paid calls authorized.
+
+Final live result: Cobalt still returned error.api.fetch.fail; anonymous browser playback succeeded without using any signed-in profile. Captured 55.483 seconds (32,775,042 bytes), extracted six frames and audio, obtained Whisper transcript and one OCR text entry; OCR failed for a sampled frame. DeepSeek returned HTTP 200 and parsed successfully. Exactly one paid call: 525 input + 929 output = 1,454 measured tokens. Conservative estimated cost USD 0.0012723, below USD 0.01; actual billed charge is not returned by the API. Result saved as needs_analysis/requires_verification, with nine NOT VERIFIED claims and three project recommendations. No further paid calls. Scratch directory verified empty. Full live evidence: docs/INSTAGRAM_BROWSER_FALLBACK_TEST.json. Final automated suite: 63 passed, 0 failed; four local synthetic media scenarios passed. Signed-in live capture remains unverified because public capture succeeded.
+
+Final dashboard verification: HTTP 200; rendered browser sign-in buttons, live transcript, nine NOT VERIFIED claims, three recommendations and usage line (525 input + 929 output; estimated USD 0.001272) confirmed in the browser. Queue paused, concurrency one; scratch empty. Separate signed-in capture was not required and remains live-untested. Optional yt-dlp ordering/config isolation verified using a stand-in; no yt-dlp installed.

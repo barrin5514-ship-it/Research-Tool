@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,mkdir,readFile,readdir} from 'node:fs/promises';
+import {mkdtemp,rm,mkdir,readFile,readdir,writeFile} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {createBrowserFallback} from '../src/browser-fallback.mjs';
 import {processVideo} from '../src/processor.mjs';
@@ -40,4 +40,13 @@ test('failed fallback removes its recording and attempt directory',async t=>{
  const {root}=await setup(t,{capture:{}});const scratchRoot=join(root,'scratch');let invoked=0;
  await assert.rejects(processVideo({url:'https://www.instagram.com/p/Test123/'},{scratchRoot,fetcher:async()=>Response.json({status:'error',error:{code:'error.api.fetch.fail'}}),acquireFallback:async()=>{invoked++;throw Object.assign(Error('login'),{code:'INSTAGRAM_LOGIN_REQUIRED'});}}));
  assert.equal(invoked,1);assert.deepEqual(await readdir(scratchRoot),[]);
+});
+
+test('installed yt-dlp is tried before browser, with configs and cookie arguments excluded',async t=>{
+ let browserCalls=0;
+ const {controller,args}=await setup(t,{ytDlp:'stand-in-yt-dlp',runner:async(binary,argv,options)=>{
+  assert.equal(binary,'stand-in-yt-dlp');assert.ok(argv.includes('--ignore-config'));assert.ok(argv.includes('--no-playlist'));assert.equal(argv.some(x=>/^--.*(cookies|browser)/i.test(x)),false);assert.equal(options.shell,false);
+  await writeFile(join(options.cwd,'download.mp4'),'test video');
+ },capture:{async capture(){browserCalls++;throw Error('Must not be called');}}});
+ assert.equal((await controller.acquire(args)).method,'yt-dlp');assert.equal(browserCalls,0);
 });

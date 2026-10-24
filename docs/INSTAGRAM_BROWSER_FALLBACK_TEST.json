@@ -1,12 +1,153 @@
 {
   "sourceUrl": "https://www.instagram.com/p/De2y_j8AHd1/",
-  "paidCalls": 0,
-  "httpStatus": null,
-  "rawUsage": null,
+  "paidCalls": 1,
+  "httpStatus": 200,
+  "rawUsage": {
+    "prompt_tokens": 525,
+    "completion_tokens": 929,
+    "total_tokens": 1454,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 525
+  },
   "cobaltIssue": "error.api.fetch.fail",
   "analysisIssue": null,
-  "status": "failed",
-  "failureCode": "INVALID_MEDIA",
+  "acquisition": {
+    "method": "browser_recording",
+    "bytes": 32775042
+  },
+  "status": "needs_analysis",
+  "result": {
+    "title": "Instagram 'AI cloned 8 paid apps for free' listicle: low-information roundup, high hype",
+    "transcript": "AI just cloned 8 apps you pay for, all free, here's where to get them. Epic Vibe coded its launcher, it says it starts 46% faster than Steam in its own test. Fortnite inside Steam, added as a shortcut and launch it from your library. Cloud motion, free and open, make motion videos from a prompt with any coding agent. Superhuman free version, fast email for Gmail and Outlook with AI sorting and drafted replies. Figma rebuilt from scratch, auto layout, components, prototypes, offline, and no account. Office now free and open, Word, Excel and PowerPoint clones that open your office files. Intercom with no invoice and open source support desk with AI agents. Be here 67% cheaper, $39 against 119 a month at 10,000 readers. Comment Jarvis for the free guide, link in bio. Follow Jarvis Daily AI for one AI move a day. Save this.",
+    "visualFindings": [],
+    "summary": "This is an Instagram reel (visual OCR caption: 'AI JUST CLONED 8 APPS YOU PAY FOR. ALL FREE.') listing eight claimed open-source or AI-built clones of paid software: an 'Epic' game launcher claimed 46% faster than Steam, Fortnite launched via Steam shortcut, 'Cloud motion' prompt-to-motion video, a 'Superhuman free' Gmail/Outlook client with AI sorting and drafted replies, a Figma rebuild with auto-layout/components/prototypes and offline/no-account use, an Office suite clone (Word/Excel/PowerPoint) with Office file compatibility, an open-source Intercom-alternative support desk with AI agents, and a newsletter platform (Beehiiv-like) at $39 vs $119/month at 10,000 readers. The post contains no verified project names, URLs, licenses, or benchmarks beyond the source's own claim. Nothing here is verified; treat all product claims as unsubstantiated marketing.",
+    "claims": [
+      {
+        "claim": "Source claims eight paid apps have been 'cloned' for free by AI.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "Epic Vibe-coded launcher reportedly starts 46% faster than Steam 'in its own test'.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "Fortnite can be launched inside Steam by adding it as a shortcut to the library.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "'Cloud motion' is a free and open tool to make motion videos from a prompt with a coding agent.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "A free Superhuman-like client offers fast Gmail/Outlook access with AI sorting and drafted replies.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "A from-scratch Figma rebuild supports auto-layout, components, prototypes, offline use, and no account.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "A free open Office clone opens Word/Excel/PowerPoint files.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "An open-source Intercom alternative support desk includes AI agents.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "A newsletter tool is claimed 67% cheaper ($39 vs $119/month at 10,000 readers).",
+        "status": "NOT VERIFIED",
+        "sources": []
+      }
+    ],
+    "recommendations": [
+      {
+        "project": "Personafy",
+        "application": "Treat the 'Superhuman free' and prompt-to-motion claims as inspiration only; Personafy already has local vision writing, adapters, and generation/review/publishing gates. No new file creation or modification is warranted. If pursued at all, this would be a external evaluation of an email/LLM drafting UX pattern as a reading exercise, not an implementation.",
+        "difficulty": "Low (reading/benchmark comparison only)",
+        "estimatedCost": "Negligible",
+        "risks": "",
+        "worthInvestigating": "",
+        "priority": "low"
+      },
+      {
+        "project": "Pennywise",
+        "application": "No credible, specific use. General 'AI tool' hype does not map to paper-trading research, evidence capture, or governance. At most, the newsletter/client tooling mentions are unrelated to trading research.",
+        "difficulty": "N/A",
+        "estimatedCost": "None",
+        "risks": "",
+        "worthInvestigating": "",
+        "priority": "low"
+      },
+      {
+        "project": "Tech",
+        "application": "If anything, use this only as a lead-generation prompt: verify each claimed tool by name/license/repo before any evaluation. The Office-compatibility and prompt-to-motion categories are the most testable against existing needs; the launcher/Fortnite claims are consumer-facing and irrelevant here.",
+        "difficulty": "Low–Medium (verification effort)",
+        "estimatedCost": "Low (time only)",
+        "risks": "",
+        "worthInvestigating": "",
+        "priority": "low"
+      }
+    ],
+    "verification": "NOT VERIFIED",
+    "extraction": {
+      "mode": "browser_recording",
+      "fixture": false,
+      "framesExtracted": 6,
+      "audioExtracted": true,
+      "transcriptionStatus": "provided_by_local_analyzer",
+      "visionStatus": "not_analyzed",
+      "analysisStatus": "required",
+      "warnings": [
+        "Cobalt failed; an alternative acquisition method was used. Browser recordings reproduce playback and are not original downloads.",
+        "Windows OCR failed for a sampled frame."
+      ],
+      "downloadedBytes": 32775042,
+      "durationSeconds": 55.483,
+      "width": 720,
+      "height": 1280,
+      "hasAudio": true
+    },
+    "ocr": [
+      {
+        "text": "110 Al JUST CLONED 8 APPS YOU PAY FOR. ALL FREE. HERE'S WHERE TO GET THEM. SAVE SOR LATER",
+        "timeSeconds": 4.624
+      }
+    ],
+    "provenance": {
+      "provider": "deepseek",
+      "model": "deepseek-flash",
+      "generatedAt": "2026-10-24T17:13:13.752Z",
+      "sourceUrl": "https://www.instagram.com/p/De2y_j8AHd1/",
+      "independentVerification": false
+    },
+    "researchStatus": "requires_verification",
+    "usage": {
+      "inputTokens": 525,
+      "outputTokens": 929,
+      "cachedInputTokens": 0,
+      "totalTokens": 1454,
+      "estimatedUSD": 0.0012722999999999999,
+      "rates": {
+        "input": 0.3,
+        "cachedInput": 0.006,
+        "output": 1.2,
+        "checked": "2026-10-24"
+      },
+      "costBasis": "Conservative peak rates; not an invoice"
+    }
+  },
   "scratchEntriesAfter": [],
   "costNote": "Chat API does not return an invoice charge. usage.estimatedUSD uses conservative published peak prices; actual billed amount is unverified."
 }
