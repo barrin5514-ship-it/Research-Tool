@@ -33,3 +33,10 @@ export function evidenceLabels(result){
 
 export function isTestFixture(video){return video.result?.extraction?.fixture===true||/^TEST FIXTURE:/i.test(video.title||'')||/^TEST FIXTURE:/i.test(video.result?.title||'')||/^SyntheticDeepSeek/i.test(video.id||'');}
 export function dashboardVideos(videos){return videos.filter(video=>!isTestFixture(video));}
+
+export function spendingCards(spending,balance){
+ const usd=balance?.balances?.find(b=>b.currency==='USD');
+ const amount=usd?Number(usd.total):NaN,cost=spending?.estimatedUSD;
+ const date=balance?.checkedAt?new Date(balance.checkedAt):null;
+ return {balance:Number.isFinite(amount)?'$'+amount.toFixed(2):'Not checked',updated:date&&!Number.isNaN(date.getTime())?'Updated '+new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}).format(date):'Not checked yet',balanceExtra:(balance?.balances||[]).filter(b=>b.currency!=='USD').map(b=>b.currency+' '+b.total).join(' · ')||'No other currency balance is available.',spent:typeof cost==='number'&&Number.isFinite(cost)?'$'+cost.toFixed(3):'Not available',tiny:typeof cost==='number'&&cost>0&&cost<0.01,count:(spending?.calls||0)+' videos analyzed',extra:((spending?.inputTokens||0)+(spending?.outputTokens||0))+' tokens. Includes test calls and repeat analyses. Spending is an estimate, not your bill.'+(spending?.unknownUsage?' Some costs are not available.':'')};
+}

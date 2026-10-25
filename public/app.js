@@ -1,4 +1,4 @@
-import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture} from './result-view.mjs';
+import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards} from './result-view.mjs';
 let state,filter='All',busy=false,visibleLimit=25,openDetails=new Set(),openAnswers=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
@@ -39,9 +39,10 @@ function render(){
   const batch=state.batch;const eta=q.running?`about ${Math.max(1,Math.ceil(q.estimatedSecondsLeft/60))} min left (estimate)`:(q.active?'finishing current video':'stopped');
   $('batch-progress').textContent=`${q.done||0} of ${q.batchSize} done · ${eta} · batch estimated cost USD ${(batch?.costUSD||0).toFixed(6)}${batch?.unknownUsage?' · some usage unknown; total may be incomplete':''}${q.stopReason?' · '+q.stopReason:''}`;
   $('pause').disabled=!q.running&&!q.active;
-  const spending=state.spending;
-  $('spending-tracker').textContent=`Research Agent total estimated spend: USD ${(spending?.estimatedUSD||0).toFixed(6)} · ${spending?.calls||0} calls · ${(spending?.inputTokens||0)+(spending?.outputTokens||0)} tokens${spending?.unknownUsage?' · some usage unknown':''}. Includes historical test calls.`;
-  $('deepseek-balance').textContent=state.balance?`DeepSeek account balance: ${state.balance.balances.map(b=>b.currency+' '+b.total).join(' · ')} · checked ${new Date(state.balance.checkedAt).toLocaleString()}`: 'DeepSeek account balance: not checked. Refresh to fetch the actual account balance.';
+  const money=spendingCards(state.spending,state.balance);
+  $('spending-tracker').textContent=money.spent;$('spending-tiny').hidden=!money.tiny;
+  $('spending-count').textContent=money.count;$('spending-extra').textContent=money.extra;
+  $('deepseek-balance').textContent=money.balance;$('balance-updated').textContent=money.updated;$('balance-extra').textContent=money.balanceExtra;
 
   for(const id of ['batch-size','batch-collection'])$(id).disabled=q.running||q.active>0;
   $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · local vision ${state.localAIEnabled?'on':'off'}`;
