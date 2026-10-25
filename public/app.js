@@ -1,4 +1,4 @@
-import {collectNewIdeas,answerSections,evidenceLabels} from './result-view.mjs';
+import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture} from './result-view.mjs';
 let state,filter='All',busy=false,visibleLimit=25,openDetails=new Set(),openAnswers=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
@@ -18,7 +18,7 @@ function render(){
   $('instagram-status').textContent=!browser?.available?'Browser capture unavailable':browser.windowOpen?'Sign-in browser is open. Close it before processing.':browser.ownerConfirmed?'Sign-in confirmed by you; access will be checked during capture.':'Instagram is not connected. Public capture will be attempted first.';
   $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
   $('instagram-confirm').disabled=!browser?.available||state.queue.active>0;
-  const videos=state.videos;
+  const videos=dashboardVideos(state.videos);
   const ideas=collectNewIdeas(videos);
   const knownProjects=['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'];
   $('project-matches').replaceChildren(...knownProjects.flatMap(project=>{
@@ -28,7 +28,7 @@ function render(){
     for(const {video,recommendation} of matches){const idea=el('div',undefined,'idea');idea.append(el('p',recommendation.application),el('p',`Priority: ${recommendation.priority||'unranked'} · NOT VERIFIED`,'small'));const source=el('a','Read the research result');source.href='#research-results';idea.append(source);group.append(idea);}return [group];
   }));
   $('new-ideas').replaceChildren(...(ideas.length?ideas.map(({video,recommendation})=>{const item=el('article',undefined,'idea');item.append(el('h3',video.result?.title||video.title),el('p',recommendation.application));const link=el('a','Original Instagram post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';item.append(link,el('p','NOT VERIFIED · Recommendation only','small'));return item;}):[el('p','No unmatched ideas have been identified yet. Imported posts will stay unprocessed until you start a batch.','small')]));
-  $('api-usage').replaceChildren(...(state.deepseekUsage||[]).map(call=>el('p',`DeepSeek ${call.videoId||'call'}: ${call.usage?`${call.usage.inputTokens} input + ${call.usage.outputTokens} output tokens · estimated $${call.usage.estimatedUSD.toFixed(6)} USD`:'usage/cost unavailable'} · ${call.at}`)));
+  $('api-usage').replaceChildren(...(state.deepseekUsage||[]).filter(call=>!state.videos.some(video=>video.id===call.videoId&&isTestFixture(video))).map(call=>el('p',`DeepSeek ${call.videoId||'call'}: ${call.usage?`${call.usage.inputTokens} input + ${call.usage.outputTokens} output tokens · estimated $${call.usage.estimatedUSD.toFixed(6)} USD`:'usage/cost unavailable'} · ${call.at}`)));
   const counts=[['Discovered',videos.length],['Analyzed',videos.filter(x=>x.status==='completed').length],['Remaining',videos.filter(x=>['pending','running','retry_wait'].includes(x.status)).length],['Needs research',videos.filter(x=>x.status==='needs_analysis').length],['Skipped',videos.filter(x=>x.status==='skipped').length],['Failed',videos.filter(x=>x.status==='failed').length]];
   $('stats').replaceChildren(...counts.map(([label,value])=>{const box=el('div',undefined,'stat');box.append(el('strong',String(value)),el('span',label));return box;}));
   const names=[...new Set(['All','Pennywise','Personafy','Tech','Unassigned',...videos.flatMap(x=>x.collections)])];

@@ -30,3 +30,6 @@ export function evidenceLabels(result){
   ['Visual reasoning',result?.extraction?.visionStatus==='analyzed'&&result?.visualFindings?.length?'Visual model observations available; not independently verified.':'Not demonstrated. OCR and sampled frames are not visual reasoning.']
  ];
 }
+
+export function isTestFixture(video){return video.result?.extraction?.fixture===true||/^TEST FIXTURE:/i.test(video.title||'')||/^TEST FIXTURE:/i.test(video.result?.title||'')||/^SyntheticDeepSeek/i.test(video.id||'');}
+export function dashboardVideos(videos){return videos.filter(video=>!isTestFixture(video));}

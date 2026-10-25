@@ -1,3 +1,4 @@
+import {repairExportText} from './export-text.mjs';
 /**
  * Read-only Instagram export parser. Nothing in an export is evaluated or fetched.
  * HTML parsing patterns are adapted from Instagram Saved Library (MIT).
@@ -23,11 +24,11 @@ function decodeEntities(value) {
 
 function htmlText(value) {
   // Remove markup before decoding: escaped markup stays literal text.
-  return decodeEntities(String(value).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+  return repairExportText(decodeEntities(String(value).replace(/<[^>]*>/g, ' '))).replace(/\s+/g, ' ').trim();
 }
 
 function plainText(value) {
-  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+  return typeof value === 'string' ? repairExportText(value).replace(/\s+/g, ' ').trim() : '';
 }
 
 export function normalizeCollectionName(value){
