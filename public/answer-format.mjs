@@ -12,3 +12,5 @@ export function normalizeAnswers(value){
  }))return undefined;
  return Object.fromEntries(ANSWER_KEYS.map(key=>[key,{bullets:[...value[key].bullets],explanation:value[key].explanation}]));
 }
+
+export function normalizeRecipe(value){if(!value||typeof value.fullRecipeShown!=='boolean'||!['ingredients','instructions'].every(k=>Array.isArray(value[k])&&value[k].length<=60&&value[k].every(line=>typeof line==='string'&&line.trim()&&line.length<=1000)))return undefined;return {ingredients:[...value.ingredients],instructions:[...value.instructions],fullRecipeShown:value.fullRecipeShown};}

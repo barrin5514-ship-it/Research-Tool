@@ -1,4 +1,4 @@
-import {collectionExcluded,collectionKey} from '../public/result-view.mjs';
+import {collectionExcluded,collectionKey,DEMO_DESCRIPTIONS} from '../public/result-view.mjs';
 import {randomUUID} from 'node:crypto';
 import {PROJECT_CONTEXT} from './research.mjs';
 import { DatabaseSync } from 'node:sqlite';
@@ -26,6 +26,7 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS collection_exclusions(name_key TEXT PRIMARY KEY,name TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS research_overrides(video_id TEXT PRIMARY KEY REFERENCES videos(id));
       CREATE TABLE IF NOT EXISTS reference_history(video_id TEXT PRIMARY KEY REFERENCES videos(id),previous_result_json TEXT,at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS project_details(project_id TEXT PRIMARY KEY,description TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,description TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,aliases_json TEXT NOT NULL DEFAULT '[]');
       CREATE TABLE IF NOT EXISTS project_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS project_combinations(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,sources_json TEXT NOT NULL,plans_json TEXT NOT NULL,usage_json TEXT,created_at INTEGER NOT NULL);
@@ -34,14 +35,16 @@ export class LibraryStore {
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
     `);
     this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='exclusions_seeded'").get()){this.db.prepare("INSERT OR IGNORE INTO collection_exclusions VALUES('reference','reference')").run();this.db.prepare("INSERT INTO project_settings VALUES('exclusions_seeded','1')").run();}});
+    this.migrateDemoDescriptions();
   }
   combinations(){return this.db.prepare('SELECT * FROM project_combinations ORDER BY created_at DESC,rowid DESC').all().map(r=>({id:r.id,projectId:r.project_id,fingerprint:r.fingerprint,sources:JSON.parse(r.sources_json),plans:JSON.parse(r.plans_json),usage:r.usage_json?JSON.parse(r.usage_json):null,createdAt:r.created_at,verification:'NOT VERIFIED'}));}
   saveCombination({projectId,fingerprint,sources,plans,usage}){this.db.prepare('INSERT INTO project_combinations VALUES(?,?,?,?,?,?,?)').run(randomUUID(),projectId,fingerprint,JSON.stringify(sources),JSON.stringify(plans),usage?JSON.stringify(usage):null,Date.now());}
+  migrateDemoDescriptions(){this.transaction(()=>{if(this.db.prepare("SELECT 1 FROM project_settings WHERE key='demo_descriptions'").get())return;for(const project of this.projects())if(Object.hasOwn(DEMO_DESCRIPTIONS,project.name)){this.db.prepare('INSERT OR IGNORE INTO project_details VALUES(?,?)').run(project.id,project.description);this.db.prepare('UPDATE projects SET description=? WHERE id=?').run(DEMO_DESCRIPTIONS[project.name],project.id);}this.db.prepare("INSERT INTO project_settings VALUES('demo_descriptions','1')").run();});}
   excludedCollections(){return this.db.prepare('SELECT name FROM collection_exclusions ORDER BY name').all().map(r=>r.name);}
   setCollectionExcluded(name,excluded){if(typeof name!=='string'||!name.trim()||name.length>300||typeof excluded!=='boolean')throw Error('Choose a collection and whether to exclude it.');if(excluded)this.db.prepare('INSERT OR REPLACE INTO collection_exclusions VALUES(?,?)').run(collectionKey(name),name.trim());else this.db.prepare('DELETE FROM collection_exclusions WHERE name_key=?').run(collectionKey(name));if(!excluded)for(const v of this.list())if(v.status==='skipped'&&v.result?.skipReason==='excluded_collection'&&!this.isExcluded(v))this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL WHERE id=?").run(v.id);return this.excludedCollections();}
   isExcluded(video){return collectionExcluded(video,this.excludedCollections());}
   overrideReference(id){const v=this.get(id);if(!v)throw Error('Post not found.');if(v.status==='running')throw Error('Wait for the current video to finish.');this.transaction(()=>{this.db.prepare('INSERT OR IGNORE INTO research_overrides VALUES(?)').run(id);this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL,updated_at=? WHERE id=?").run(Date.now(),id);});}
-  projects(){return this.db.prepare('SELECT * FROM projects ORDER BY rowid').all().map(p=>({...p,enabled:Boolean(p.enabled),aliases:JSON.parse(p.aliases_json),aliases_json:undefined}));}
+  projects(){return this.db.prepare('SELECT * FROM projects ORDER BY rowid').all().map(p=>({...p,enabled:Boolean(p.enabled),aliases:JSON.parse(p.aliases_json),technicalDescription:this.db.prepare('SELECT description FROM project_details WHERE project_id=?').get(p.id)?.description||'',aliases_json:undefined}));}
   activeProjects(){return this.projects().filter(p=>p.enabled);}
   saveProject({id,name,description,enabled=true}){
     if(typeof name!=='string'||!name.trim()||name.trim().length>80||name.trim().toLowerCase()==='new ideas'||typeof description!=='string'||!description.trim()||description.trim().length>3000||typeof enabled!=='boolean')throw Error('Enter a project name (up to 80 characters) and description (up to 3000 characters).');
