@@ -1,5 +1,5 @@
-import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView} from './result-view.mjs';
-let state,filter='All',busy=false,visibleLimit=25,skippedLimit=10,openDetails=new Set(),openAnswers=new Set();
+import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView,combinationSources} from './result-view.mjs';
+let state,filter='All',busy=false,visibleLimit=25,skippedLimit=10,openDetails=new Set(),openAnswers=new Set(),openCombined=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 const labels={pending:'Waiting',running:'Extracting',retry_wait:'Retry scheduled',needs_analysis:'Needs research',completed:'Analyzed',skipped:'Skipped',failed:'Failed'};
@@ -14,6 +14,7 @@ async function refresh(){const response=await fetch('/api/state');if(!response.o
 function render(){
   openDetails=new Set([...document.querySelectorAll('.result-details[open]')].map(node=>node.dataset.videoId));
   openAnswers=new Set([...document.querySelectorAll('[data-answer-details]:not([hidden])')].map(node=>node.dataset.videoId));
+  openCombined=new Set([...document.querySelectorAll('[data-combined-detail][open]')].map(node=>node.dataset.combinedDetail));
   const browser=state.instagramBrowser;
   $('instagram-status').textContent=!browser?.available?'Browser capture unavailable':browser.windowOpen?'Sign-in browser is open. Close it before processing.':browser.ownerConfirmed?'Sign-in confirmed by you; access will be checked during capture.':'Instagram is not connected. Public capture will be attempted first.';
   $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
@@ -28,6 +29,7 @@ function render(){
     const matches=ideaVideos.flatMap(video=>(video.result?.recommendations||[]).filter(r=>recommendationProject(r,projects)?.id===project.id).map(recommendation=>({video,recommendation})));
 
     const group=el('div',undefined,'panel project-group');group.append(el('h3',project.name+(project.enabled?'':' (off)')));if(!matches.length)group.append(el('p',project.name+': no matches yet.','small'));
+    appendCombinations(group,project,ideaVideos);
     for(const {video,recommendation} of matches){const idea=el('div',undefined,'idea');idea.append(el('p',recommendation.application),el('p',`Priority: ${recommendation.priority||'unranked'} · NOT VERIFIED`,'small'));const source=el('a','Read the research result');source.href='#research-results';idea.append(source);group.append(idea);}return [group];
   }));
   $('new-ideas').replaceChildren(...(ideas.length?ideas.map(({video,recommendation})=>{const item=el('article',undefined,'idea');item.append(el('h3',video.result?.title||video.title),el('p',recommendation.application));const link=el('a','Original Instagram post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';item.append(link,el('p','NOT VERIFIED · Recommendation only','small'));return item;}):[el('p','No unmatched ideas have been identified yet. Imported posts will stay unprocessed until you start a batch.','small')]));
@@ -50,7 +52,8 @@ function render(){
 
   for(const id of ['batch-size','batch-collection'])$(id).disabled=q.running||q.active>0;
   $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · local vision ${state.localAIEnabled?'on':'off'}`;
-  $('start').disabled=q.running||q.active>0||state.rechecks?.running;
+  $('start').disabled=q.running||q.active>0||state.rechecks?.running||state.combining?.running;
+  $('combine-status').textContent=state.combining?.running?'Combining saved ideas for '+state.combining.project+'…':state.combining?.error||'';
   $('recheck-status').textContent=state.rechecks?.running?`Re-checking ${state.rechecks.project}: ${state.rechecks.done} of ${state.rechecks.total} done · estimated spend USD ${state.rechecks.costUSD.toFixed(6)}`:state.rechecks?.error||'';
   const selected=library.videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
   $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(collectionExcluded(video,excluded))row.append(el('span','Excluded collection','pill'));if(visualReference(video))row.append(el('span','Skipped: visual reference','pill'));if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
@@ -108,6 +111,24 @@ $('instagram-connect').onclick=()=>action('/api/instagram/connect').then(r=>{if(
 $('instagram-confirm').onclick=()=>action('/api/instagram/confirm').then(r=>{if(r)message(r.message);}).catch(()=>{});
 
 
+let combinePreview;
+async function previewCombination(project){try{const preview=await action('/api/projects/combine/preview',{id:project.id});if(!preview)return;combinePreview=preview;$('combine-summary').textContent=`Combine ${preview.count} analyzed results for ${preview.project}. Estimated cost: up to about $${preview.estimatedUSD.toFixed(4)}. ${preview.note}`;$('combine-review').hidden=false;$('combine-review').scrollIntoView({behavior:'smooth',block:'center'});}catch{}}
+function appendCombinations(group,project,videos){
+ const sources=combinationSources(videos,project,state.excludedCollections||[]),allowed=new Set(sources.map(v=>v.videoId));
+ const disabled=sources.length<2||state.queue.running||state.queue.active>0||state.rechecks?.running||state.combining?.running;
+ const combine=el('button','Combine ideas','secondary');combine.disabled=disabled;combine.onclick=()=>previewCombination(project);group.append(combine,el('p',sources.length+(sources.length===1?' analyzed result available':' analyzed results available'),'small'));
+ const sets=(state.combinedPlans||[]).filter(set=>set.projectId===project.id);
+ if(!sets.length){group.append(el('p','No combined plans yet.','small'));return;}
+ const refresh=el('button','Refresh','secondary');refresh.setAttribute('aria-label','Refresh combined plans for '+project.name);refresh.disabled=disabled;refresh.onclick=()=>previewCombination(project);group.append(refresh);
+ if(JSON.stringify(sets[0].sources)!==JSON.stringify(sources))group.append(el('p','Saved results have changed. Refresh to combine the latest ideas.','small'));
+ function renderSet(set){const section=el('section',undefined,'combined-set');const date=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(set.createdAt));section.append(el('h4','Combined plans'),el('p',date+' · NOT VERIFIED','small'));
+  const plans=set.plans.filter(plan=>plan.videoIds.every(id=>allowed.has(id)));if(!plans.length)section.append(el('p','Plans using excluded or no-longer-matched results are hidden.','small'));
+  plans.forEach((plan,index)=>{const article=el('article',undefined,'combined-plan');article.append(el('h4',plan.name));const list=el('ul');plan.bullets.forEach(b=>list.append(el('li',b)));article.append(list);const links=el('p',undefined,'small');links.append(document.createTextNode('Uses: '));plan.videoIds.forEach((id,i)=>{const video=state.videos.find(v=>v.id===id);if(i)links.append(document.createTextNode(' · '));const link=el('a',video?.result?.title||id);if(video){link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';}links.append(link);});article.append(links);
+   const details=el('details');details.dataset.combinedDetail=set.id+':'+index;details.open=openCombined.has(details.dataset.combinedDetail);details.append(el('summary','Give me more'),el('h5','What they do together'),el('p',plan.together),el('h5','First step to try'),el('p',plan.firstStep));article.append(details);section.append(article);});return section;}
+ group.append(renderSet(sets[0]));if(sets.length>1){const earlier=el('details');earlier.dataset.combinedDetail='history:'+project.id;earlier.open=openCombined.has(earlier.dataset.combinedDetail);earlier.append(el('summary','Earlier combined plans'));sets.slice(1).forEach(set=>earlier.append(renderSet(set)));group.append(earlier);}
+}
+$('combine-confirm').onclick=()=>{if(!combinePreview)return;action('/api/projects/combine/confirm',{token:combinePreview.token,confirmed:true}).then(()=>{combinePreview=null;$('combine-review').hidden=true;message('Combining saved ideas. No videos will be downloaded.');}).catch(()=>{});};
+$('combine-cancel').onclick=()=>{combinePreview=null;$('combine-review').hidden=true;};
 let exclusionsFingerprint='';
 function renderExclusions(videos,excluded){
  const names=[...new Map([...videos.flatMap(v=>v.collections),...excluded].map(name=>[collectionKey(name),name])).values()].sort((a,b)=>Number(excluded.some(n=>collectionKey(n)===collectionKey(b)))-Number(excluded.some(n=>collectionKey(n)===collectionKey(a)))||a.localeCompare(b));const fingerprint=JSON.stringify([names,excluded]);if(fingerprint===exclusionsFingerprint)return;exclusionsFingerprint=fingerprint;
