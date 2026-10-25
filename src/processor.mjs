@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import { copyFile, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath,pathToFileURL } from 'node:url';
+import {normalizeAnswers} from '../public/answer-format.mjs';
 
 const WORKSPACE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_BYTES = 80 * 1024 * 1024;
@@ -472,6 +473,7 @@ export async function processVideo(job, {
     for (const field of ['visualFindings', 'claims', 'recommendations']) {
       if (Array.isArray(analyzed[field])) result[field] = analyzed[field].slice(0, 100);
     }
+    if(normalizeAnswers(analyzed.answers))result.answers=normalizeAnswers(analyzed.answers);
     result.verification = analyzed.verification === 'PARTIALLY VERIFIED' ? 'PARTIALLY VERIFIED' : 'NOT VERIFIED';
     if (analyzed.provenance && typeof analyzed.provenance === 'object') {
       result.provenance = JSON.parse(JSON.stringify(analyzed.provenance).split(attempt).join('[temporary evidence]'));

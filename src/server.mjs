@@ -20,6 +20,7 @@ const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = 12 * 1024 * 1024;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/answer-format.mjs',['answer-format.mjs','text/javascript; charset=utf-8']);
 async function readJson(req) {
   const chunks = []; let length = 0;
   for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('Import is too large; choose fewer files (12 MiB limit)'); error.status = 413; throw error; } chunks.push(chunk); }

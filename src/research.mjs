@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { gatherEvidence } from './fact-check.mjs';
+import {normalizeAnswers} from '../public/answer-format.mjs';
 
 export const PROJECT_CONTEXT = {
   'Sims 4 Upgrades': 'Recommendation project, not an Instagram collection. Consider ideas from every video for upgrading The Sims 4 through mods, Python scripting, custom content, AI tools, graphics, automation or gameplay improvements. Explain a concrete Sims 4 application before matching. Assess compatibility, licensing, save backups and untrusted mod/code risks. Recommendations only; do not install mods or change game files. Do not force a match based on generic technology words alone.',
@@ -20,6 +21,7 @@ export function normalizeResearch(raw, { model, job, generatedAt = new Date().to
   const text = (value, limit = 3000) => typeof value === 'string' ? value.slice(0,limit) : '';
   const list = value => Array.isArray(value) ? value.slice(0,20) : [];
   return {
+    ...(normalizeAnswers(raw.answers)?{answers:normalizeAnswers(raw.answers)}:{}),
     title: text(raw.title,200) || job.title,
     summary: text(raw.summary), topic: text(raw.topic,200), transcript: null,
     visualFindings: list(raw.visualFindings).map(x => text(x,1500)),

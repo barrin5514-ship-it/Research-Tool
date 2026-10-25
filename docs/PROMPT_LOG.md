@@ -1077,3 +1077,23 @@ Follow-up: retried the already-installed smallest local vision model, CPU-only, 
 Then ran a fresh real Instagram capture through transcription, OCR and one-frame local visual inference in an isolated database: 55.521 seconds, six extracted frames, 827 transcript characters, two OCR samples, and structured visual observations consistent with the prominent OCR headline. Model output still requires review and all claims remain NOT VERIFIED. One OCR frame failure was reported; later frames were checked. Dashboard HTTP 200, temporary entries empty, production fingerprint unchanged, zero paid calls. Model unloaded after the test. General visual accuracy and whole-video understanding are not claimed. Final evidence: docs/MVP_REAL_VISION_ACCEPTANCE.json and docs/MVP_PRESENTATION.md.
 
 Final verification after retry: 74 automated tests passed, four synthetic media scenarios passed, native known speech/OCR passed, controlled visual-only test passed after prompt correction, and real one-frame local visual flow passed. Final app HTTP 200; all 1,187 production records match the pre-edit fingerprint; zero additional paid calls; queue paused; model unloaded. UI verified for the three sections/questions, expanded evidence, preserved review/cost controls, and cleared stale connection warnings after reconnection. No raw exports, keys, database backups or screenshots are committed.
+
+## Three-video demo request paused before execution
+
+Requested DeepSeek as the demo provider, September-only export labels, and three new videos (two Pennywise, one Personafy), at most three calls/USD0.03, with per-video reporting, tests and commit. Initial inspection and preparation only were underway when the owner replaced that execution scope below. No new video or paid request was started. No provider configuration, export labels or production data were changed. The unfinished paid-budget helper was removed; this is not an approved pending batch to run automatically.
+
+## Short bullets under existing headings
+
+The headings What is this?, Why is it useful? and What can I do with it? already exist. Keep them. Only change the text under them.
+1. Under each heading, replace the paragraph with 2 to 3 short bullet points.
+2. Each bullet: one plain-English sentence, under 15 words, no jargon.
+3. Add a Give me more button that shows the longer explanation for all three sections.
+4. Update the research prompt so DeepSeek writes these short bullets directly, instead of shortening them afterward.
+5. Do not change anything else on the dashboard. No new videos and no paid calls.
+6. Run the tests, commit, update PROMPT_LOG.md, and include a screenshot.
+
+Kept the three headings and other dashboard sections/controls. Replaced answer paragraphs with bullet lists and added one button per result to expand all three longer explanations together. Expanded state survives dashboard refreshes. New DeepSeek output requests answers with bullets and a separate explanation for each heading. Shared validation accepts 2–3 bullets, fewer than 15 words, one sentence and no common jargon terms; it rejects invalid model output rather than shortening it or automatically making another paid call. Normalizer/processor retain valid bullets and explanations unchanged. No live DeepSeek output was generated in this task: tests use stand-ins only. Earlier saved results have no model-written bullets, so they use brief display fallback points with their existing paragraphs preserved under the expansion button; original database content is unchanged.
+
+Full automated suite: 78 passed, zero failed. No new video processing or paid calls. Screenshot and browser expansion verification follow before final commit.
+
+Browser acceptance: unchanged question headings confirmed; six displayed bullets on the first result were all under 15 words. Give me more revealed three nonempty explanations together (longest saved explanation 1,186 characters), then Give me less collapsed them. Expansion survives polling. Screenshot saved privately at .research-data/short-answer-dashboard.png. Original data fingerprint unchanged across all 1,187 records; paid-call ledger still contains the same two historical entries; queue paused. Final full suite: 78 passed, zero failed. No live DeepSeek format/quality claim is made because this task forbids paid calls.

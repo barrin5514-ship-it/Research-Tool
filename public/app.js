@@ -1,5 +1,5 @@
-import {shortSummary,collectNewIdeas,resultAnswers,evidenceLabels} from './result-view.mjs';
-let state,filter='All',busy=false,visibleLimit=25,openDetails=new Set();
+import {collectNewIdeas,answerSections,evidenceLabels} from './result-view.mjs';
+let state,filter='All',busy=false,visibleLimit=25,openDetails=new Set(),openAnswers=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 const labels={pending:'Waiting',running:'Extracting',retry_wait:'Retry scheduled',needs_analysis:'Needs research',completed:'Analyzed',skipped:'Skipped',failed:'Failed'};
@@ -13,6 +13,7 @@ async function action(path,body={}){
 async function refresh(){const response=await fetch('/api/state');if(!response.ok)throw Error('Dashboard connection failed');state=await response.json();render();if($('message').textContent===unavailableMessage)message('');}
 function render(){
   openDetails=new Set([...document.querySelectorAll('.result-details[open]')].map(node=>node.dataset.videoId));
+  openAnswers=new Set([...document.querySelectorAll('[data-answer-details]:not([hidden])')].map(node=>node.dataset.videoId));
   const browser=state.instagramBrowser;
   $('instagram-status').textContent=!browser?.available?'Browser capture unavailable':browser.windowOpen?'Sign-in browser is open. Close it before processing.':browser.ownerConfirmed?'Sign-in confirmed by you; access will be checked during capture.':'Instagram is not connected. Public capture will be attempted first.';
   $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
@@ -50,8 +51,15 @@ function card(video){
   const title=video.result?.title||video.title;
   heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`,'meta'));
   top.append(heading,el('span',labels[video.status]||video.status,'pill'));box.append(top);
-  const answers=resultAnswers(video),answerBox=el('div',undefined,'answer-grid');
-  for(const [question,answer] of [['What is this?',answers.what],['Why is it useful?',answers.why],['What can I do with it?',answers.next]]){const item=el('div');item.append(el('h4',question),el('p',answer));answerBox.append(item);}box.append(answerBox);
+  const answers=answerSections(video),answerBox=el('div',undefined,'answer-grid'),expanded=openAnswers.has(video.id),explanations=[];
+  for(const [key,question] of [['what','What is this?'],['why','Why is it useful?'],['next','What can I do with it?']]){
+    const item=el('div'),list=el('ul');for(const bullet of answers[key].bullets)list.append(el('li',bullet));
+    const explanation=el('p',answers[key].explanation);explanation.id=`answer-${video.id}-${key}`;explanation.dataset.answerDetails='true';explanation.dataset.videoId=video.id;explanation.hidden=!expanded;
+    item.append(el('h4',question),list,explanation);answerBox.append(item);explanations.push(explanation);
+  }
+  const more=el('button',expanded?'Give me less':'Give me more','secondary');more.setAttribute('aria-expanded',String(expanded));more.setAttribute('aria-controls',explanations.map(node=>node.id).join(' '));
+  more.onclick=()=>{const show=more.getAttribute('aria-expanded')!=='true';more.setAttribute('aria-expanded',String(show));more.textContent=show?'Give me less':'Give me more';for(const explanation of explanations)explanation.hidden=!show;};
+  box.append(answerBox,more);
   const link=el('a','Open original Instagram video');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   if(video.error)box.append(el('p',`Processing issue: ${video.error.replaceAll('_',' ')}. Check the setup guide and retry when ready.`));
   const result=video.result;
