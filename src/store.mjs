@@ -104,10 +104,10 @@ export class LibraryStore {
   }
   finish(id, { status, result }, now = Date.now()) {
     if(result?.skipReason==='visual_reference')this.db.prepare('INSERT OR IGNORE INTO reference_history VALUES(?,?,?)').run(id,this.db.prepare('SELECT result_json FROM videos WHERE id=?').get(id)?.result_json||null,now);
-    if (!['needs_analysis', 'completed', 'skipped'].includes(status)) throw new Error('Invalid processing result');
+    if (!['needs_analysis', 'completed', 'skipped', 'failed'].includes(status)) throw new Error('Invalid processing result');
     if (status === 'completed' && (!result?.summary || !result?.provenance)) throw new Error('Completed research requires summary and provenance');
-    this.db.prepare("UPDATE videos SET status=?,result_json=?,updated_at=?,error=NULL,review_status='New' WHERE id=?")
-      .run(status, JSON.stringify(result), now, id);
+    this.db.prepare("UPDATE videos SET status=?,result_json=?,updated_at=?,error=?,review_status='New' WHERE id=?")
+      .run(status, JSON.stringify(result), now, status==='failed'?'ANALYSIS_FAILED':null, id);
   }
   fail(id, error, now = Date.now()) {
     const row = this.get(id);

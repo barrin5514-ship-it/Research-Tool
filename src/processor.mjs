@@ -459,12 +459,13 @@ export async function processVideo(job, {
     } catch (error) {
       interruption(attemptSignal);
       result.extraction.warnings.push('Research provider is unavailable or failed. Extracted media was removed; analysis remains incomplete.');
-      return { status: 'needs_analysis', result };
+      result.analysisFailure='Analysis failed. Your transcript and on-screen text were saved. Check the provider settings before trying again.';
+      return { status: 'failed', result };
     }
     interruption(attemptSignal);
     if (!analyzed || typeof analyzed.summary !== 'string' || !analyzed.summary.trim()) {
-      result.extraction.warnings.push('The local analyzer did not produce a research summary.');
-      return { status: 'needs_analysis', result };
+      result.analysisFailure='The analysis returned no usable summary. Your transcript and on-screen text were saved.';
+      return { status: 'failed', result };
     }
     // Copy only research fields. Never persist provider internals or file paths.
     for (const field of ['summary', 'transcript', 'title']) {
@@ -473,6 +474,7 @@ export async function processVideo(job, {
     for (const field of ['visualFindings', 'claims', 'recommendations']) {
       if (Array.isArray(analyzed[field])) result[field] = analyzed[field].slice(0, 100);
     }
+    for(const field of ['validationWarnings','savedAnswerDetails'])if(analyzed[field])result[field]=analyzed[field];
     if(normalizeRecipe(analyzed.recipe))result.recipe=normalizeRecipe(analyzed.recipe);
     if(normalizeAnswers(analyzed.answers))result.answers=normalizeAnswers(analyzed.answers);
     result.verification = analyzed.verification === 'PARTIALLY VERIFIED' ? 'PARTIALLY VERIFIED' : 'NOT VERIFIED';

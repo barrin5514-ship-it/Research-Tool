@@ -14,11 +14,11 @@ test('DeepSeek uses official address, text only, normalized unverified output an
  }finally{await new Promise(resolve=>server.close(resolve));}
 });
 
-test('invalid short bullets are rejected without rewriting or automatic paid retries',async()=>{
+test('invalid short bullets preserve paid summary without rewriting or automatic paid retries',async()=>{
  let calls=0,usageRecorded=0;
  const answers=structuredClone(sampleAnswers);answers.what.bullets=['word '.repeat(15).trim(),'Check this first.'];
  const research=createDeepSeekResearch({approved:true,apiKey:'stand-in-key',onUsage:async()=>usageRecorded++,fetcher:async()=>{calls++;return Response.json({usage:{prompt_tokens:10,completion_tokens:10},choices:[{message:{content:JSON.stringify({summary:'A saved description',answers})}}]});}});
- await assert.rejects(research({job:{}}),/three presentation answers/);assert.equal(calls,1);assert.equal(usageRecorded,1);
+ const result=await research({job:{}});assert.equal(result.summary,'A saved description');assert.equal(result.answers,undefined);assert.deepEqual(result.savedAnswerDetails,answers);assert.ok(result.validationWarnings.length);assert.equal(calls,1);assert.equal(usageRecorded,1);
 });
 test('no network call before owner approval or without a key',async()=>{
  let calls=0;const fetcher=async()=>{calls++;};await assert.rejects(createDeepSeekResearch({apiKey:'key',fetcher})({job:{}}),/approval/);await assert.rejects(createDeepSeekResearch({approved:true,fetcher})({job:{}}),/key/);assert.equal(calls,0);

@@ -88,8 +88,10 @@ function card(video){
     const details=el('details',undefined,'result-details'),content=el('div');details.dataset.videoId=video.id;details.open=openDetails.has(video.id);details.append(el('summary','Show more — transcript, evidence and recommendations'),content);box.append(details);
     for(const [label,value] of evidenceLabels(result))content.append(el('p',`${label}: ${value}`,'small'));
     content.append(el('p',result.summary||(video.status==='skipped'?'This video was skipped.': 'Media extraction finished. Research is incomplete: a transcript, visual interpretation, and independent evidence still need to be produced.')));
+    if(result.savedAnswerDetails){content.append(el('h4','Saved answers (original format)'),el('p',JSON.stringify(result.savedAnswerDetails)));}
+    if(result.analysisFailure)content.append(el('p',result.analysisFailure));
     if(result.extraction?.reason)content.append(el('p',result.extraction.reason));
-    for(const warning of result.extraction?.warnings||[])content.append(el('p',warning,'small'));
+    for(const warning of [...(result.extraction?.warnings||[]),...(result.validationWarnings||[])])content.append(el('p',warning,'small'));
     const facts=el('div',undefined,'facts');
     for(const [label,value] of [['Evidence status',result.verification||'NOT VERIFIED'],['Extracted samples',`${result.extraction?.framesExtracted??0} frames · ${Math.round(result.extraction?.durationSeconds??0)} seconds`],['Transcript',result.transcript||'Not available'],['Media retention','Temporary media and frame files are removed after each attempt.']]){const fact=el('div',undefined,'fact');fact.append(el('strong',label),el('span',value));facts.append(fact);}content.append(facts);
     if(result.ocr?.length){content.append(el('h4','On-screen text (Windows OCR)'));const lines=el('ul');for(const entry of result.ocr)lines.append(el('li',entry.text||''));content.append(lines);}
