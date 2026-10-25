@@ -1,0 +1,63 @@
+{
+  "at": "2026-10-25T00:39:31.537Z",
+  "scope": "REAL Instagram content; isolated test library; free local evidence analysis, not DeepSeek",
+  "source": "https://www.instagram.com/p/De2y_j8AHd1/",
+  "status": "needs_analysis",
+  "error": null,
+  "acquisition": {
+    "method": "browser_recording",
+    "bytes": 33662938
+  },
+  "transcriptCharacters": 831,
+  "transcriptExcerpt": "AI just cloned 8 apps you pay for, all free, here's where to get them. Epic Vibe coded its launcher, it says it starts 46% faster than Steam in its own test. Fortnite inside Steam, added as a shortcut and launch it from your library. Cloud motion, free and open, make motion videos from a prompt with any coding agent. Superhuman free version, fast email for Gmail and Outlook with AI sorting and drafted replies. Figma rebuilt from scratch, auto layout, components, prototypes, offline, and no account. Office now free and open, Word, Excel and PowerPoint clones that open your office files. Intercom with no invoice and open source support desk with AI agents. Be here 67% cheaper, $39 against 119 ",
+  "recognizedNames": [
+    "Steam",
+    "Figma",
+    "Office",
+    "Intercom",
+    "Superhuman"
+  ],
+  "ocrEntries": 1,
+  "ocrTexts": [
+    "Al JUST CLONED 8 APPS YOU PAY FOR. ALL FREE. HERE'S WHERE TO GET THEM. SAVE FOR LATER"
+  ],
+  "frames": 6,
+  "durationSeconds": 55.816,
+  "warnings": [
+    "Cobalt failed; an alternative acquisition method was used. Browser recordings reproduce playback and are not original downloads.",
+    "Windows OCR failed for a sampled frame."
+  ],
+  "visionStatus": "not_analyzed",
+  "visionReadiness": "The selected model must already be loaded and identified as vision-capable",
+  "freeRAMGiB": 1.3531379699707031,
+  "provider": "local-evidence-rules",
+  "recommendations": [
+    {
+      "project": "Dev Squad AI",
+      "application": "Review the extracted idea against Dev Squad AI's existing architecture before proposing changes.",
+      "difficulty": "Not assessed",
+      "estimatedCost": "Not assessed",
+      "risks": "Source accuracy and implementation risk require review.",
+      "worthInvestigating": "Tentative content/keyword match only; relevance has not been established.",
+      "usefulness": "unknown",
+      "costLevel": "unknown",
+      "riskLevel": "unknown",
+      "score": -3,
+      "rankingBasis": {
+        "usefulness": "unknown",
+        "cost": "unknown",
+        "risk": "unknown"
+      },
+      "priority": "low"
+    }
+  ],
+  "dashboardHTTP": 200,
+  "temporaryEntries": [],
+  "mainDataUnchanged": true,
+  "paidCalls": 0,
+  "limitations": [
+    "Name checks establish intelligibility, not a word-error-rate accuracy measurement.",
+    "No visual-model inference was run. OCR reads text only.",
+    "Rules-based recommendations are tentative and claims remain NOT VERIFIED."
+  ]
+}

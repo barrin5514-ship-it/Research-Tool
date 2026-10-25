@@ -10,3 +10,10 @@ test('missing native capabilities produce explicit partial output',async()=>{
  const result=await createWindowsExtraction({run:async()=>{throw Error('missing');}})({audioPath:'a',frames:[{path:'b'}]});
  assert.equal(result.transcript,null);assert.equal(result.warnings.length,2);
 });
+
+test('an unreadable sampled frame does not discard later OCR evidence',async()=>{
+ let calls=0;
+ const extract=createWindowsExtraction({run:async()=>{calls++;if(calls===1)throw Error('Unreadable first frame');return {stdout:'{"text":"LATER FRAME TEXT"}'};}});
+ const result=await extract({frames:[{path:'first.jpg',timeSeconds:1},{path:'second.jpg',timeSeconds:2}]});
+ assert.equal(calls,2);assert.deepEqual(result.ocr,[{text:'LATER FRAME TEXT',timeSeconds:2}]);assert.equal(result.warnings.length,1);
+});

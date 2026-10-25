@@ -1,15 +1,16 @@
-import {shortSummary,collectNewIdeas} from './result-view.mjs';
+import {shortSummary,collectNewIdeas,resultAnswers,evidenceLabels} from './result-view.mjs';
 let state,filter='All',busy=false,visibleLimit=25,openDetails=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 const labels={pending:'Waiting',running:'Extracting',retry_wait:'Retry scheduled',needs_analysis:'Needs research',completed:'Analyzed',skipped:'Skipped',failed:'Failed'};
+const unavailableMessage='The local server is unavailable. Restart it to resume your library.';
 function message(text){$('message').textContent=text;}
 async function action(path,body={}){
   if(busy)return;busy=true;
   try{const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-research-token':state.csrf},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error);await refresh();return result;}
   catch(e){message(e.message);throw e;}finally{busy=false;}
 }
-async function refresh(){const response=await fetch('/api/state');if(!response.ok)throw Error('Dashboard connection failed');state=await response.json();render();}
+async function refresh(){const response=await fetch('/api/state');if(!response.ok)throw Error('Dashboard connection failed');state=await response.json();render();if($('message').textContent===unavailableMessage)message('');}
 function render(){
   openDetails=new Set([...document.querySelectorAll('.result-details[open]')].map(node=>node.dataset.videoId));
   const browser=state.instagramBrowser;
@@ -18,6 +19,13 @@ function render(){
   $('instagram-confirm').disabled=!browser?.available||state.queue.active>0;
   const videos=state.videos;
   const ideas=collectNewIdeas(videos);
+  const knownProjects=['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'];
+  $('project-matches').replaceChildren(...knownProjects.flatMap(project=>{
+    const matches=videos.flatMap(video=>(video.result?.recommendations||[]).filter(r=>r.project===project).map(recommendation=>({video,recommendation})));
+    if(!matches.length)return [];
+    const group=el('div',undefined,'panel project-group');group.append(el('h3',project));
+    for(const {video,recommendation} of matches){const idea=el('div',undefined,'idea');idea.append(el('p',recommendation.application),el('p',`Priority: ${recommendation.priority||'unranked'} · NOT VERIFIED`,'small'));const source=el('a','Read the research result');source.href='#research-results';idea.append(source);group.append(idea);}return [group];
+  }));
   $('new-ideas').replaceChildren(...(ideas.length?ideas.map(({video,recommendation})=>{const item=el('article',undefined,'idea');item.append(el('h3',video.result?.title||video.title),el('p',recommendation.application));const link=el('a','Original Instagram post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';item.append(link,el('p','NOT VERIFIED · Recommendation only','small'));return item;}):[el('p','No unmatched ideas have been identified yet. Imported posts will stay unprocessed until you start a batch.','small')]));
   $('api-usage').replaceChildren(...(state.deepseekUsage||[]).map(call=>el('p',`DeepSeek ${call.videoId||'call'}: ${call.usage?`${call.usage.inputTokens} input + ${call.usage.outputTokens} output tokens · estimated $${call.usage.estimatedUSD.toFixed(6)} USD`:'usage/cost unavailable'} · ${call.at}`)));
   const counts=[['Discovered',videos.length],['Analyzed',videos.filter(x=>x.status==='completed').length],['Remaining',videos.filter(x=>['pending','running','retry_wait'].includes(x.status)).length],['Needs research',videos.filter(x=>x.status==='needs_analysis').length],['Skipped',videos.filter(x=>x.status==='skipped').length],['Failed',videos.filter(x=>x.status==='failed').length]];
@@ -29,21 +37,27 @@ function render(){
   $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · local AI ${state.localAIEnabled?'enabled (readiness checked per video)':'off'}`;
   $('start').disabled=q.running||q.active>0;
   const selected=videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
-  if(!selected.length){const box=el('div',undefined,'empty');box.append(el('h3','Your research inbox is ready'),el('p','Import an export or add three links to begin. No videos have been analyzed here yet.'));$('results').replaceChildren(box);return;}
-  $('results').replaceChildren(...selected.slice(0,visibleLimit).map(card));
-  if(selected.length>visibleLimit){const more=el('button',`Show 25 more (${selected.length-visibleLimit} remaining)`,'secondary');more.onclick=()=>{visibleLimit+=25;render();};$('results').append(more);}
+  $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);return row;}));
+  if(!selected.length)$('library-items').append(el('p','No posts in this collection.'));
+  if(selected.length>visibleLimit){const more=el('button',`Show 25 more (${selected.length-visibleLimit} remaining)`,'secondary');more.onclick=()=>{visibleLimit+=25;render();};$('library-items').append(more);}
+  const researched=selected.filter(x=>x.result||['failed','skipped'].includes(x.status));
+  $('results').replaceChildren(...researched.slice(0,visibleLimit).map(card));
+  if(!researched.length)$('results').append(el('div','No research results in this collection yet. Imported posts have not been analyzed.','empty'));
+  if(researched.length>visibleLimit){const more=el('button','Show more results','secondary');more.onclick=()=>{visibleLimit+=25;render();};$('results').append(more);}
 }
 function card(video){
   const box=el('article',undefined,'result'),top=el('div',undefined,'result-top'),heading=el('div');
   const title=video.result?.title||video.title;
   heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`,'meta'));
   top.append(heading,el('span',labels[video.status]||video.status,'pill'));box.append(top);
-  box.append(el('p',shortSummary(video),'result-summary'));
+  const answers=resultAnswers(video),answerBox=el('div',undefined,'answer-grid');
+  for(const [question,answer] of [['What is this?',answers.what],['Why is it useful?',answers.why],['What can I do with it?',answers.next]]){const item=el('div');item.append(el('h4',question),el('p',answer));answerBox.append(item);}box.append(answerBox);
   const link=el('a','Open original Instagram video');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   if(video.error)box.append(el('p',`Processing issue: ${video.error.replaceAll('_',' ')}. Check the setup guide and retry when ready.`));
   const result=video.result;
   if(result){
-    const details=el('details',undefined,'result-details'),content=el('div');details.dataset.videoId=video.id;details.open=openDetails.has(video.id);details.append(el('summary','Transcript, evidence and recommendations'),content);box.append(details);
+    const details=el('details',undefined,'result-details'),content=el('div');details.dataset.videoId=video.id;details.open=openDetails.has(video.id);details.append(el('summary','Show more — transcript, evidence and recommendations'),content);box.append(details);
+    for(const [label,value] of evidenceLabels(result))content.append(el('p',`${label}: ${value}`,'small'));
     content.append(el('p',result.summary||(video.status==='skipped'?'This video was skipped.': 'Media extraction finished. Research is incomplete: a transcript, visual interpretation, and independent evidence still need to be produced.')));
     if(result.extraction?.reason)content.append(el('p',result.extraction.reason));
     for(const warning of result.extraction?.warnings||[])content.append(el('p',warning,'small'));
@@ -64,4 +78,4 @@ $('start').onclick=()=>action('/api/start').then(result=>{if(result)message(resu
 $('pause').onclick=()=>action('/api/pause').then(()=>message('Queue paused. Current videos finish and clean up; no new videos start.')).catch(()=>{});
 $('instagram-connect').onclick=()=>action('/api/instagram/connect').then(r=>{if(r)message(r.message);}).catch(()=>{});
 $('instagram-confirm').onclick=()=>action('/api/instagram/confirm').then(r=>{if(r)message(r.message);}).catch(()=>{});
-refresh().catch(e=>message(e.message));setInterval(()=>refresh().catch(()=>message('The local server is unavailable. Restart it to resume your library.')),3000);
+refresh().catch(e=>message(e.message));setInterval(()=>refresh().catch(()=>message(unavailableMessage)),3000);

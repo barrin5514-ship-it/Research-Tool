@@ -1,0 +1,52 @@
+{
+  "at": "2026-10-25T00:55:47.921Z",
+  "scope": "REAL Instagram content with local visual-model inference of one sampled frame; isolated test library",
+  "source": "https://www.instagram.com/p/De2y_j8AHd1/",
+  "status": "needs_analysis",
+  "error": null,
+  "acquisition": {
+    "method": "browser_recording",
+    "bytes": 35700563
+  },
+  "transcriptCharacters": 827,
+  "transcriptExcerpt": "AI just cloned 8 apps you pay for, all free, here's where to get them. Epic vibe coded its launcher, it says it starts 46% faster than Steam in its own test. Fortnite inside Steam, added as a shortcut and launch it from your library. Cloud motion, free and open, make motion videos from a prompt with any coding agent. Superhuman free version, fast email for Gmail and Outlook with AI sorting and drafted replies. Figma rebuilt from scratch, auto layout, components, prototypes, offline, no account. Office now free and open, word, Excel and PowerPoint clones that open your office files. Intercom with no invoice and open source support desk with AI agents. Be here 67% cheaper, $39 against 119 a mo",
+  "recognizedNames": [
+    "Steam",
+    "Figma",
+    "Office",
+    "Intercom",
+    "Superhuman"
+  ],
+  "ocrEntries": 2,
+  "ocrTexts": [
+    "10 Al JUST CLONED 8 APPS YOU PAY FOR. ALL FREE. HERE'S WHERE TO GET THEM. SAVE FOR LATER",
+    "10 / 10 COMMENT \"JARVIS\" FOR THE FREE GUIDE. Link in bio. o jarvisdailyai.space arvi s_dai Iy_ai Follow for one Al move a day."
+  ],
+  "frames": 6,
+  "durationSeconds": 55.521,
+  "warnings": [
+    "Cobalt failed; an alternative acquisition method was used. Browser recordings reproduce playback and are not original downloads.",
+    "Windows OCR failed for a sampled frame; remaining frames were still checked."
+  ],
+  "visionStatus": "analyzed",
+  "visualFindings": [
+    "A man is running down a wet street at night with various app icons floating around him, including Microsoft Word, Excel, PowerPoint, Figma, Epic Games, Fortnite, Intercom, Be Here, and Jarvis. The text on the image reads 'AI JUST CLONED 8 APPS YOU PAY FOR. ALL FREE. HERE'S WHERE TO GET THEM.'",
+    "The image is a promotional graphic for an AI service that offers free alternatives to paid apps.",
+    "The OCR text at 4.627 seconds states: '10 Al JUST CLONED 8 APPS YOU PAY FOR, ALL FREE. HERE'S WHERE TO GET THEM. SAVE FOR LATER'."
+  ],
+  "summary": "The image displays a promotional graphic for an AI that clones paid applications, offering them as free alternatives. The text mentions the availability of tools like Epic, Fortnite in Steam, Figma, Office, Intercom, Be Here, and Jarvis, all available through this AI service.",
+  "framesAnalyzed": 1,
+  "visionReadiness": "not-loaded",
+  "freeRAMGiB": 4.782077789306641,
+  "provider": "local",
+  "recommendations": [],
+  "dashboardHTTP": 200,
+  "temporaryEntries": [],
+  "mainDataUnchanged": true,
+  "paidCalls": 0,
+  "limitations": [
+    "Name checks establish intelligibility, not a word-error-rate accuracy measurement.",
+    "Only one sampled frame was sent to the vision model; observations still require review.",
+    "All model/rules suggestions and claims remain NOT VERIFIED."
+  ]
+}

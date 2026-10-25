@@ -1,0 +1,7 @@
+{
+  "test": "LIVE LOCAL SYNTHETIC EXTRACTION",
+  "transcript": "Research helps people learn new ideas.",
+  "ocrFrames": 5,
+  "cleanup": "passed",
+  "status": "needs_analysis"
+}

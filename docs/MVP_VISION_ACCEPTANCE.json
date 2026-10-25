@@ -1,0 +1,36 @@
+{
+  "scope": "SYNTHETIC visual-only image, no transcript, written labels or OCR hints",
+  "seconds": 17.128,
+  "redCircle": true,
+  "blueSquare": true,
+  "inventedProject": false,
+  "structuredFindings": true,
+  "parsed": true,
+  "result": {
+    "title": "Red circle and blue square",
+    "summary": "The image displays a red circular shape and a blue square on a white background.",
+    "topic": "General technology research",
+    "transcript": null,
+    "visualFindings": [
+      "A red circle and a blue square are visible on a white background."
+    ],
+    "technologies": [],
+    "claims": [],
+    "recommendations": [],
+    "verification": "NOT VERIFIED",
+    "researchStatus": "visual_only",
+    "limitations": [
+      "No speech transcription is configured.",
+      "Sampled frames do not cover every moment.",
+      "AI claims and cost estimates have not been independently verified."
+    ],
+    "provenance": {
+      "provider": "local",
+      "model": "qwen3-vl-2b-instruct",
+      "generatedAt": "2026-10-25T00:51:58.837Z",
+      "sourceUrl": "https://www.instagram.com/p/SyntheticVisionFixture/",
+      "independentVerification": false
+    }
+  },
+  "paidCalls": 0
+}

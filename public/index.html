@@ -1,31 +1,34 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Research Library</title><link rel="stylesheet" href="/style.css"><script src="/app.js" type="module"></script>
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Research Library</title><link rel="stylesheet" href="/style.css"><script src="/app.js" type="module"></script></head>
 <body>
-  <header><div class="brand">R<span>Research Library</span></div><span class="badge">LOCAL · THREE-VIDEO PILOT</span></header>
-  <main>
-    <section class="intro"><p class="eyebrow">FROM SAVED VIDEOS TO USEFUL IDEAS</p><h1>Your next idea starts here.</h1><p>Organize your Instagram collections, inspect videos, and review research for your projects.</p></section>
-    <aside class="notice"><strong>This is a partial proof of concept.</strong> Import and processing are available. Local speech and OCR extraction are connected. AI reasoning and independent claim verification still need validation. Videos awaiting those steps are never counted as analyzed.</aside>
-    <section class="stats" id="stats" aria-label="Processing totals"></section>
-    <div id="api-usage" class="small" aria-live="polite"></div>
-    <section class="panel"><h2>Instagram browser</h2><p id="instagram-status">Checking browser…</p><button id="instagram-connect">Open Research Agent Instagram sign-in</button> <button id="instagram-confirm" class="secondary">I signed in and closed the browser</button><p class="small">Sign in yourself in the separate Research Agent browser, then close its window before processing. Its profile stays on this computer. Videos are processed one at a time, with at least 20 seconds between attempts.</p></section>
-    <div class="layout">
-      <aside class="sidebar"><h2>Collections</h2><nav id="collections" aria-label="Collection filters"></nav><p class="small">Collection membership comes from your export or your manual choice. Missing membership stays Unassigned.</p><div class="local-note"><strong>Your projects stay yours.</strong><p>Approvals are recorded here. This library cannot modify Personafy or Pennywise or execute trades.</p></div></aside>
-      <div>
-        <section class="panel"><div class="panel-heading"><h2>Add your saved videos</h2><span class="step">01 / IMPORT</span></div>
-          <p>Request an official Instagram export in Meta Accounts Center. Extract the ZIP on your computer, then choose the saved-post and saved-collection HTML or JSON files.</p>
-          <div class="import-row"><input id="files" type="file" accept=".html,.htm,.json" multiple aria-label="Saved-post and collection export files"><button id="import">Import export files</button></div>
-          <details><summary>Or add up to three public links</summary><label for="links">One Instagram video link per line</label><textarea id="links" rows="3" placeholder="https://www.instagram.com/reel/…"></textarea><div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div></details>
-          <p class="small">No Instagram password or cookies are requested. Reimporting an updated export preserves previous work. Missing old links are retained as history.</p>
-        </section>
-        <section class="panel ideas-panel"><h2>New ideas</h2><p>Useful ideas without a supported match to Pennywise, Personafy, Tech, Dev Squad AI or Sims 4 Upgrades. Every video can suggest ideas for any project; collection membership does not determine relevance.</p><div id="new-ideas"></div></section>
-        <section class="toolbar"><div><h2>Research inbox</h2><p id="queue-state" class="small">Loading…</p></div><div><button id="start">Process up to 3 videos</button><button id="pause" class="secondary">Pause queue</button></div></section>
-        <div id="message" role="status" aria-live="polite"></div><div id="results"></div>
-      </div>
-    </div>
-    <footer>Media is temporary. Your library keeps URLs, collection membership, text findings, and status. The queue runs only while this server is open.</footer>
-  </main>
-</body></html>
+<header><div class="brand">R<span>Research Library</span></div><span class="badge">LOCAL RESEARCH MVP</span></header>
+<main>
+<div class="intro"><p class="eyebrow">FROM SAVED VIDEOS TO USEFUL IDEAS</p><h1>Find something worth trying.</h1><p>Your saved posts, clear research notes, and ideas for your projects.</p></div>
+<nav class="section-nav" aria-label="Main sections"><a href="#my-library">My library</a><a href="#research-results">Research results</a><a href="#project-ideas">Project ideas</a></nav>
+<p class="notice">Research notes are suggestions, not verified facts. Speech transcription, reading on-screen text, and visual reasoning are shown separately.</p>
+<div id="message" role="status" aria-live="polite"></div>
+<section id="my-library" class="workspace-section" aria-labelledby="library-heading">
+<p class="eyebrow">01 / COLLECT</p><h2 id="library-heading">My library</h2><p>Imported posts stay here until you choose to process a batch.</p>
+<div class="stats" id="stats" aria-label="Processing totals"></div>
+<details class="panel setup-panel"><summary>Add posts or connect Instagram</summary>
+<h3>Import saved posts</h3><p>Choose both saved-post and saved-collection JSON or HTML files from your extracted Instagram export. Reimporting keeps earlier work and skips duplicates.</p>
+<div class="import-row"><input id="files" type="file" accept=".html,.htm,.json" multiple aria-label="Saved-post and collection export files"><button id="import">Import export files</button></div>
+<label for="links">Or paste up to three public Instagram links</label><textarea id="links" rows="2" placeholder="https://www.instagram.com/reel/…"></textarea>
+<div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div>
+<h3>Instagram sign-in</h3><p id="instagram-status">Checking browser…</p><button id="instagram-connect">Open Research Agent Instagram sign-in</button> <button id="instagram-confirm" class="secondary">I signed in and closed the browser</button>
+<p class="small">Sign in yourself in the separate Research Agent browser, then close it before processing. Personafy's profile is never used.</p>
+</details>
+<div class="toolbar"><p id="queue-state" class="small">Loading…</p><div><button id="start">Process next batch (up to 3)</button><button id="pause" class="secondary">Pause queue</button></div></div>
+<div class="library-layout"><aside class="sidebar"><h3>Collections</h3><nav id="collections" aria-label="Collection filters"></nav><p class="small">Counts include earlier imports. Collection membership does not prove an idea fits a project.</p></aside><div id="library-items"></div></div>
+</section>
+<section id="research-results" class="workspace-section" aria-labelledby="research-heading">
+<p class="eyebrow">02 / UNDERSTAND</p><h2 id="research-heading">Research results</h2><p>What it is, why it may help, and a practical next step. Open “Show more” for the evidence.</p>
+<div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. DeepSeek requires separate approval before any paid call.</p></details>
+</section>
+<section id="project-ideas" class="workspace-section" aria-labelledby="ideas-heading">
+<p class="eyebrow">03 / APPLY</p><h2 id="ideas-heading">Project ideas</h2><p>Suggestions for Pennywise, Personafy, Tech, Dev Squad AI and Sims 4 Upgrades. Nothing here changes those projects.</p>
+<div id="project-matches"></div><div class="panel ideas-panel"><h3>New ideas</h3><p>Useful ideas without a supported project match stay here.</p><div id="new-ideas"></div></div>
+</section>
+<footer>Videos, recordings, audio and sampled frames are temporary. Your library keeps text findings and sources. Claims remain NOT VERIFIED until checked independently.</footer>
+</main></body></html>

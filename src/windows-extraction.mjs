@@ -14,7 +14,11 @@ export function createWindowsExtraction({run=execute,whisper=run===execute&&exis
     let transcript=null;const ocr=[],warnings=[];
     if(audioPath && whisper)try{transcript=await whisper(audioPath,{signal});}catch{if(signal?.aborted)throw signal.reason;warnings.push('Whisper failed; trying installed Windows speech recognition.');}
     if(audioPath && !transcript)try{transcript=(await extract('speech',audioPath,signal)).text||null;}catch{warnings.push('Installed Windows speech recognition was unavailable or failed.');}
-    for(const frame of frames.slice(0,6))try{const value=await extract('ocr',frame.path,signal);if(value.text)ocr.push({text:value.text,timeSeconds:frame.timeSeconds});}catch{warnings.push('Windows OCR failed for a sampled frame.');break;}
+    for(const frame of frames.slice(0,6))try{const value=await extract('ocr',frame.path,signal);if(value.text)ocr.push({text:value.text,timeSeconds:frame.timeSeconds});}catch{
+      signal?.throwIfAborted();
+      const warning='Windows OCR failed for a sampled frame; remaining frames were still checked.';
+      if(!warnings.includes(warning))warnings.push(warning);
+    }
     return {transcript,ocr,warnings};
   };
 }

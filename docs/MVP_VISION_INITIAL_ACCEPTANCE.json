@@ -1,0 +1,56 @@
+{
+  "scope": "SYNTHETIC visual-only image with no written labels, transcript or OCR",
+  "model": "qwen3-vl-2b-instruct",
+  "seconds": 48.896,
+  "redCircle": true,
+  "blueSquare": true,
+  "parsed": true,
+  "result": {
+    "title": "Synthetic Vision Fixture",
+    "summary": "The image displays a red circle and a blue square on a white background, which are likely visual elements from the video content. The project is related to enhancing The Sims 4 through mods, Python scripting, custom content, AI tools, graphics, automation or gameplay improvements.",
+    "topic": "Sims 4 Upgrades",
+    "transcript": null,
+    "visualFindings": [
+      "A red circle",
+      "A blue square"
+    ],
+    "technologies": [
+      "Python",
+      "JavaScript",
+      "AI",
+      "Modding",
+      "Custom Content",
+      "Graphics",
+      "Automation",
+      "Gameplay Improvements"
+    ],
+    "claims": [
+      {
+        "claim": "The image is a visual representation of the 'Synthetic Vision Fixture' project, which focuses on enhancing The Sims 4 through various technological and creative applications.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      },
+      {
+        "claim": "This project involves using AI tools for code review, development, and analysis to improve game experiences.",
+        "status": "NOT VERIFIED",
+        "sources": []
+      }
+    ],
+    "recommendations": [],
+    "verification": "NOT VERIFIED",
+    "researchStatus": "visual_only",
+    "limitations": [
+      "No speech transcription is configured.",
+      "Sampled frames do not cover every moment.",
+      "AI claims and cost estimates have not been independently verified."
+    ],
+    "provenance": {
+      "provider": "local",
+      "model": "qwen3-vl-2b-instruct",
+      "generatedAt": "2026-10-25T00:48:37.545Z",
+      "sourceUrl": "https://www.instagram.com/p/SyntheticVisionFixture/",
+      "independentVerification": false
+    }
+  },
+  "paidCalls": 0
+}
