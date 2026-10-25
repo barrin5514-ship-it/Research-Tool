@@ -49,7 +49,7 @@ function render(){
 function card(video){
   const box=el('article',undefined,'result'),top=el('div',undefined,'result-top'),heading=el('div');
   const title=video.result?.title||video.title;
-  heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`,'meta'));
+  heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`+(video.result?.provenance?.provider==='deepseek'?' · DeepSeek':''),'meta'));
   top.append(heading,el('span',labels[video.status]||video.status,'pill'));box.append(top);
   if(video.septemberOnly)box.append(el('p','September export only','pill'));
   const answers=answerSections(video);

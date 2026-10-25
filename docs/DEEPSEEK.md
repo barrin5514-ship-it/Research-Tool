@@ -27,3 +27,7 @@ All53 Windows automated tests pass, including a real local stand-in HTTP server.
 Unverified: a real key/account balance, real DeepSeek response compatibility, actual billed cost, recommendation quality, and the dashboard with a live paid result. No paid calls were made and no target projects or Cobalt files were changed. Usage UI is implemented but has not been visually checked with a live result.
 
 Changed files: `.gitignore`, `.env` (ignored, blank key), `.env.example`, `Start Research Library.cmd`, `package.json`, `src/deepseek.mjs`, `src/deepseek-usage.mjs`, `src/server.mjs`, `src/processor.mjs`, `public/index.html`, `public/app.js`, `test/deepseek.test.mjs`, this report and the full test-output file. Existing `.processor-test-*` scratch directories were excluded from the baseline commit and ignored without deleting them.
+
+## Task-limited approvals
+
+DeepSeek is now the default research provider. Local vision and the evidence provider require explicit selection; there is no automatic evidence fallback. The paid dashboard routes also require approval for the particular video in the private persistent budget. Setting RESEARCH_DEEPSEEK_APPROVED alone does not grant unbounded spending. The October 24 demo budget is inactive and used its three requests; future paid work needs a fresh owner-approved budget. The one-off demo script intentionally refuses to rerun against its existing budget file. Never delete that guard to retry a paid task.

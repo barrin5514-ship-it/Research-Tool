@@ -17,3 +17,11 @@ test('paid reservations survive failures and restrict URLs, repeats and total ca
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 test('September labels preserve existing records and exclude October overlap',()=>{const store=new LibraryStore(':memory:');try{store.import(['old','both','new','unknown'].map(shortcode=>({shortcode,url:`https://www.instagram.com/p/${shortcode}/`,collections:[]})));store.setExportPresence(new Set(['old','both']),new Set(['both','new']));assert.deepEqual(store.list().filter(v=>v.septemberOnly).map(v=>v.id),['old']);assert.ok(store.list().every(v=>v.status==='pending'&&v.attempts===0));}finally{store.close();}});
+test('inactive approval, oversized input and exhausted dollar budget never send requests',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'research-budget-')),file=join(dir,'budget.json');let calls=0;
+ const request=budgetedFetch(file,async()=>{calls++;return Response.json({});});
+ const body={model:'deepseek-flash',max_tokens:1200,messages:[{}, {content:JSON.stringify({sourceUrl:'https://www.instagram.com/p/new/'})}]};
+ try{for(const state of [{active:false,requests:[]},{active:true,requests:[{id:'old',reservedUSD:0.029}]}]){await writeFile(file,JSON.stringify({...state,videos:[{id:'new',url:'https://www.instagram.com/p/new/'}]}));await assert.rejects(request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)}));}
+ await writeFile(file,JSON.stringify({active:true,requests:[],videos:[{id:'new',url:'https://www.instagram.com/p/new/'}]}));body.padding='x'.repeat(40000);await assert.rejects(request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)}));assert.equal(calls,0);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});

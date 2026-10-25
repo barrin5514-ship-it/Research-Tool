@@ -22,6 +22,7 @@ test('local dashboard import/update and host/origin/CSRF security boundaries',as
     const again=await send('/api/import',{files});assert.equal((await again.json()).results[0].repeatedExport,true);
     assert.equal((await send('/api/links',{links:'http://127.0.0.1/secret'})).status,400);
     const add=await send('/api/links',{links:'https://www.instagram.com/p/Test001/',collection:'Tech'});assert.equal(add.status,200);assert.deepEqual(store.get('Test001').collections,['Tech']);
+    assert.equal(state.researchProvider,'deepseek');assert.equal(state.paidApproval,false);assert.equal((await send('/api/analyze',{id:'Test001'})).status,400);assert.equal((await send('/api/start',{})).status,400);assert.equal(queue.status().active,0);
     assert.equal(store.list().length,1);assert.equal((await send('/api/review',{id:'Test001',status:'Approved'})).status,400);
   }finally{await queue.stop();await new Promise(resolve=>server.close(resolve));store.close();}
 });
