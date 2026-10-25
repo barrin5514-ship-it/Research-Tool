@@ -478,6 +478,7 @@ export async function processVideo(job, {
     if (analyzed.provenance && typeof analyzed.provenance === 'object') {
       result.provenance = JSON.parse(JSON.stringify(analyzed.provenance).split(attempt).join('[temporary evidence]'));
     }
+    if(['visual_reference','excluded_collection'].includes(analyzed.skipReason)){result.skipReason=analyzed.skipReason;result.classificationReason=analyzed.classificationReason||null;result.recommendations=[];result.verification='NOT VERIFIED';result.extraction.visionStatus='not_analyzed';if(analyzed.usage)result.usage=analyzed.usage;return {status:'skipped',result};}
     const researchComplete = Boolean(result.transcript?.trim()) && analyzed.researchStatus === 'complete' && analyzed.sourceVerification === 'completed';
     result.researchStatus = result.transcript?.trim() ? 'requires_verification' : 'visual_only';
     result.extraction.analysisStatus = researchComplete ? 'completed' : 'required';

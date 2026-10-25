@@ -1,3 +1,4 @@
+import {collectionExcluded,collectionKey} from '../public/result-view.mjs';
 import {randomUUID} from 'node:crypto';
 import {PROJECT_CONTEXT} from './research.mjs';
 import { DatabaseSync } from 'node:sqlite';
@@ -22,14 +23,21 @@ export class LibraryStore {
         hash TEXT PRIMARY KEY, filename TEXT NOT NULL, imported_at INTEGER NOT NULL,
         added INTEGER NOT NULL, existing INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS export_presence (video_id TEXT PRIMARY KEY REFERENCES videos(id), september INTEGER NOT NULL, october INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS collection_exclusions(name_key TEXT PRIMARY KEY,name TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS research_overrides(video_id TEXT PRIMARY KEY REFERENCES videos(id));
+      CREATE TABLE IF NOT EXISTS reference_history(video_id TEXT PRIMARY KEY REFERENCES videos(id),previous_result_json TEXT,at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,description TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,aliases_json TEXT NOT NULL DEFAULT '[]');
       CREATE TABLE IF NOT EXISTS project_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS project_rechecks(video_id TEXT NOT NULL REFERENCES videos(id),project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,result_json TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(video_id,project_id,fingerprint));
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
     `);
-    this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}});
+    this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='exclusions_seeded'").get()){this.db.prepare("INSERT OR IGNORE INTO collection_exclusions VALUES('reference','reference')").run();this.db.prepare("INSERT INTO project_settings VALUES('exclusions_seeded','1')").run();}});
   }
+  excludedCollections(){return this.db.prepare('SELECT name FROM collection_exclusions ORDER BY name').all().map(r=>r.name);}
+  setCollectionExcluded(name,excluded){if(typeof name!=='string'||!name.trim()||name.length>300||typeof excluded!=='boolean')throw Error('Choose a collection and whether to exclude it.');if(excluded)this.db.prepare('INSERT OR REPLACE INTO collection_exclusions VALUES(?,?)').run(collectionKey(name),name.trim());else this.db.prepare('DELETE FROM collection_exclusions WHERE name_key=?').run(collectionKey(name));if(!excluded)for(const v of this.list())if(v.status==='skipped'&&v.result?.skipReason==='excluded_collection'&&!this.isExcluded(v))this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL WHERE id=?").run(v.id);return this.excludedCollections();}
+  isExcluded(video){return collectionExcluded(video,this.excludedCollections());}
+  overrideReference(id){const v=this.get(id);if(!v)throw Error('Post not found.');if(v.status==='running')throw Error('Wait for the current video to finish.');this.transaction(()=>{this.db.prepare('INSERT OR IGNORE INTO research_overrides VALUES(?)').run(id);this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL,updated_at=? WHERE id=?").run(Date.now(),id);});}
   projects(){return this.db.prepare('SELECT * FROM projects ORDER BY rowid').all().map(p=>({...p,enabled:Boolean(p.enabled),aliases:JSON.parse(p.aliases_json),aliases_json:undefined}));}
   activeProjects(){return this.projects().filter(p=>p.enabled);}
   saveProject({id,name,description,enabled=true}){
@@ -70,13 +78,13 @@ export class LibraryStore {
     const grouped = new Map();
     for (const item of memberships) { if (!grouped.has(item.video_id)) grouped.set(item.video_id,[]); grouped.get(item.video_id).push(item.name); }
     return this.db.prepare('SELECT * FROM videos ORDER BY created_at DESC,id').all().map(row => ({
-      ...row, septemberOnly: Boolean(this.db.prepare('SELECT 1 FROM export_presence WHERE video_id=? AND september=1 AND october=0').get(row.id)), result: row.result_json ? JSON.parse(row.result_json) : null, result_json: undefined,
+      ...row, researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)), septemberOnly: Boolean(this.db.prepare('SELECT 1 FROM export_presence WHERE video_id=? AND september=1 AND october=0').get(row.id)), result: row.result_json ? JSON.parse(row.result_json) : null, result_json: undefined,
       collections: grouped.get(row.id) || []
     }));
   }
   get(id) {
     const row=this.db.prepare('SELECT * FROM videos WHERE id=?').get(id);
-    return row && {...row,result:row.result_json?JSON.parse(row.result_json):null,result_json:undefined,
+    return row && {...row,researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)),result:row.result_json?JSON.parse(row.result_json):null,result_json:undefined,
       collections:this.db.prepare('SELECT name FROM memberships WHERE video_id=? ORDER BY name').all(id).map(x=>x.name)};
   }
   claim(now = Date.now(), allowedIds = undefined) {
@@ -89,6 +97,7 @@ export class LibraryStore {
     });
   }
   finish(id, { status, result }, now = Date.now()) {
+    if(result?.skipReason==='visual_reference')this.db.prepare('INSERT OR IGNORE INTO reference_history VALUES(?,?,?)').run(id,this.db.prepare('SELECT result_json FROM videos WHERE id=?').get(id)?.result_json||null,now);
     if (!['needs_analysis', 'completed', 'skipped'].includes(status)) throw new Error('Invalid processing result');
     if (status === 'completed' && (!result?.summary || !result?.provenance)) throw new Error('Completed research requires summary and provenance');
     this.db.prepare("UPDATE videos SET status=?,result_json=?,updated_at=?,error=NULL,review_status='New' WHERE id=?")

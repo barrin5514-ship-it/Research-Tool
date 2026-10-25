@@ -1,4 +1,8 @@
 import {normalizeAnswers,ANSWER_KEYS} from './answer-format.mjs';
+export const collectionKey=name=>String(name).trim().toLowerCase();
+export function collectionExcluded(video,excluded=[]){return !video.researchOverride&&(video.collections||[]).some(name=>excluded.some(item=>collectionKey(item)===collectionKey(name)));}
+export function visualReference(video){return !video.researchOverride&&video.result?.skipReason==='visual_reference';}
+export function researchCounts(videos,excluded){const visible=dashboardVideos(videos);return {excluded:visible.filter(v=>collectionExcluded(v,excluded)).length,remaining:visible.filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&(['pending','retry_wait','failed'].includes(v.status)||(v.status==='needs_analysis'&&!v.result?.answers))).length};}
 export function shortSummary(video){
  const text=video.result?.summary?.replace(/\s+/g,' ').trim();
  if(!text)return video.status==='pending'?'Imported only. This post has not been processed.':'No research summary is available yet.';

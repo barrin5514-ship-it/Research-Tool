@@ -1,3 +1,4 @@
+import {researchCounts,visualReference} from '../public/result-view.mjs';
 import {ProjectRechecks} from './project-rechecks.mjs';
 import {createBalanceTracker} from './deepseek-balance.mjs';
 import {BatchController} from './batches.mjs';
@@ -41,7 +42,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if (req.headers.host !== new URL(origin).host) return send(403,{error:'Invalid local host'});
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:store.list(),projects:store.projects(),rechecks:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:store.list(),projects:store.projects(),excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -71,6 +72,8 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const items = links.map(raw => ({...normalizeInstagramUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
         return send(200,store.import(items));
       }
+      if(path==='/api/collections/exclusion')return send(200,{excluded:store.setCollectionExcluded(body.name,body.excluded)});
+      if(path==='/api/reference/override'){const video=store.get(body.id);if(!video||(!store.isExcluded(video)&&!visualReference(video)))throw Error('This item is not excluded or marked visual reference.');store.overrideReference(body.id);if(queue.running||queue.active.size||batches?.starting||rechecks?.status().running)return send(200,{message:'Marked not reference and queued. Start a new batch when current work finishes.'});if(!batches)throw Error('Batch processing unavailable.');await batches.start({size:1,id:body.id});return send(200,{message:'Marked not reference; analysis started for this video only.'});}
       if(path==='/api/projects/save')return send(200,store.saveProject(body));
       if(path==='/api/projects/delete'){store.deleteProject(body.id,body.confirmed);return send(200,{ok:true});}
       if(path==='/api/projects/recheck/preview'){if(!rechecks)throw Error('Re-check unavailable.');return send(200,rechecks.prepare(body.id));}
@@ -116,7 +119,7 @@ export async function start() {
     const nativeExtract = nativeExtractionEnabled ? createWindowsExtraction() : undefined;
     await cleanupStaleAttempts(join(data,'scratch'));
     store = new LibraryStore(join(data,'library.sqlite')); store.recover();
-    queue = new ResearchQueue(store,(job,signal)=>processVideo(job,{scratchRoot:join(data,'scratch'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire}),{concurrency,minIntervalMs:20_000});
+    queue = new ResearchQueue(store,(job,signal)=>store.isExcluded(store.get(job.id))?Promise.resolve({status:'skipped',result:{...(job.result||{}),summary:job.result?.summary||'Skipped: excluded collection',skipReason:'excluded_collection'}}):processVideo(job,{scratchRoot:join(data,'scratch'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire}),{concurrency,minIntervalMs:20_000});
     batches=new BatchController({store,queue,dataRoot:join(data,'batches'),apiKey:process.env.DEEPSEEK_API_KEY,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const rechecks=new ProjectRechecks({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches.starting,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const balanceTracker=createBalanceTracker({apiKey:process.env.DEEPSEEK_API_KEY,file:join(data,'deepseek-balance.json')});
