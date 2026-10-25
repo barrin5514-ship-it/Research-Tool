@@ -80,6 +80,7 @@ function card(video){
   more.onclick=()=>{const show=more.getAttribute('aria-expanded')!=='true';more.setAttribute('aria-expanded',String(show));more.textContent=show?'Give me less':'Give me more';for(const explanation of explanations)explanation.hidden=!show;};
   box.append(answerBox,more);
   }else if(hasDeepSeekResult(video)){box.append(el('p',shortSummary(video),'result-summary'));}else{box.append(el('p',videoStatus(video)));if(video.status==='needs_analysis')box.append(el('p','Saved text is ready; a DeepSeek summary is still needed.','small'));}
+  if(video.result?.validationWarnings?.length)box.append(el('p','Summary saved. Some answers need formatting; open Show more for the original response.','small'));
   const link=el('a','Open original Instagram video');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   if(video.status==='failed')box.append(el('p',failedReason(video),'failure-reason'));
   if(hasDeepSeekResult(video)){const check=el('button','Check claims (coming soon)','secondary claim-check');check.disabled=true;box.append(check);}
@@ -88,7 +89,7 @@ function card(video){
     const details=el('details',undefined,'result-details'),content=el('div');details.dataset.videoId=video.id;details.open=openDetails.has(video.id);details.append(el('summary','Show more — transcript, evidence and recommendations'),content);box.append(details);
     for(const [label,value] of evidenceLabels(result))content.append(el('p',`${label}: ${value}`,'small'));
     content.append(el('p',result.summary||(video.status==='skipped'?'This video was skipped.': 'Media extraction finished. Research is incomplete: a transcript, visual interpretation, and independent evidence still need to be produced.')));
-    if(result.savedAnswerDetails){content.append(el('h4','Saved answers (original format)'),el('p',JSON.stringify(result.savedAnswerDetails)));}
+    if(result.savedAnswerDetails){content.append(el('h4','Saved answers (original format)'));for(const [key,label] of [['what','What is this?'],['why','Why is it useful?'],['next','What can I do with it?']]){const answer=result.savedAnswerDetails[key];if(!answer)continue;content.append(el('h5',label));if(Array.isArray(answer.bullets)){const list=el('ul');for(const bullet of answer.bullets)if(typeof bullet==='string')list.append(el('li',bullet));content.append(list);}if(typeof answer.explanation==='string')content.append(el('p',answer.explanation));}}
     if(result.analysisFailure)content.append(el('p',result.analysisFailure));
     if(result.extraction?.reason)content.append(el('p',result.extraction.reason));
     for(const warning of [...(result.extraction?.warnings||[]),...(result.validationWarnings||[])])content.append(el('p',warning,'small'));

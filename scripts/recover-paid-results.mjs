@@ -13,7 +13,7 @@ const store=new LibraryStore('.research-data/library.sqlite');
 const outcomes=[];
 try{
  const budget=JSON.parse(await readFile(file,'utf8'));
- if(budget.maxCalls!==2||budget.limitUSD!==0.01||budget.mode==='tracking'||budget.videos.length!==2||!budget.videos.every(v=>ids.includes(v.id)))throw Error('Recovery budget does not match owner approval.');
+ if(!budget.active||budget.requests.length||budget.maxCalls!==2||budget.limitUSD!==0.01||budget.mode==='tracking'||budget.videos.length!==2||!budget.videos.every(v=>ids.includes(v.id)))throw Error('Recovery budget does not match owner approval.');
  for(const id of ids){
   const job=store.get(id),saved=job?.result;
   if(!saved?.transcript?.trim()||!Array.isArray(saved.ocr))throw Error('Required saved transcript and OCR are missing.');
