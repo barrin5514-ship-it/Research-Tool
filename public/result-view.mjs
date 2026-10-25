@@ -5,9 +5,10 @@ export function shortSummary(video){
  if(text.length<=260)return text;
  const cut=text.slice(0,257);return cut.slice(0,cut.lastIndexOf(' ')>180?cut.lastIndexOf(' '):257)+'…';
 }
-export function collectNewIdeas(videos){
+export function recommendationProject(recommendation,projects){return projects.find(p=>recommendation.projectId?p.id===recommendation.projectId:p.name===recommendation.project||p.aliases?.includes(recommendation.project));}
+export function collectNewIdeas(videos,projectList){
  const projects=new Set(['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades']);
- return videos.flatMap(video=>(video.result?.recommendations||[]).filter(r=>!projects.has(r.project)&&r.application?.trim()).map(recommendation=>({video,recommendation})));
+ return videos.flatMap(video=>(video.result?.recommendations||[]).filter(r=>(projectList?!recommendationProject(r,projectList):!projects.has(r.project))&&r.application?.trim()).map(recommendation=>({video,recommendation})));
 }
 
 export function resultAnswers(video){

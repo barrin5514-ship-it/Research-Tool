@@ -1,0 +1,15 @@
+# Recommendation projects — October 25, 2026
+
+Manage projects in **Project ideas → My projects**. Add a name and description of the project and the kinds of ideas that should match. Edit, turn off/on, or delete with an explicit confirmation. The initial five projects are seeded into SQLite only once; deleting one does not recreate it on restart. A private database backup was created before migration: `.research-data/before-project-manager-20261025.sqlite`.
+
+New video research reads the current active projects immediately before each DeepSeek request. No project folders are read or modified. Off projects are omitted from new prompts but keep their old idea groups. Renaming preserves existing matches using stable IDs and legacy-name aliases. Deleted projects do not delete original research; their historical unmatched recommendations appear under New ideas. Every remaining project has a group, including “no matches yet.”
+
+**Re-check older results** first shows the count and a conservative upper cost estimate. It sends no model request until **Confirm re-check** is clicked. The preview expires after ten minutes and becomes invalid if the project or saved evidence changes. The selected project must be on, and normal video batches and rechecks cannot run together.
+
+Rechecks use existing transcripts and OCR text only; videos are not downloaded again. Results without saved text and test fixtures are excluded. Only recommendations for the selected project are replaced; original summaries, answers, transcripts, claims, other project recommendations and processing status remain. The recommendation decision returns to New after replacement. Recheck output and its evidence/project fingerprint are saved separately in SQLite. Unchanged successful rechecks are excluded from later previews, so interrupted rechecks can be continued by reviewing the remaining count again. Changed descriptions or evidence become eligible again.
+
+Processing is sequential with a twenty-second gap. Stop finishes the active recheck and then stops. A failed DeepSeek request stops without a paid retry; known token usage is logged even if the response cannot be used. Recheck charges appear in the existing spending tracker. Claims remain NOT VERIFIED.
+
+Verification: 101 automated Windows tests passed with zero failures, using disposable databases and stand-in DeepSeek responses. Full output: `docs/projects-windows-tests.txt`. Browser checks confirmed Add project fields, the five seeded projects, empty Dev Squad AI/Sims 4 groups and a free seven-video Pennywise preview (approximately $0.0202 upper estimate). That preview was cancelled; no live recheck or paid call was made. Screenshot: ignored `.research-data/my-projects-dashboard.png`.
+
+The server was already stopped when work began, with its recorded process gone. One stale running record was recovered to pending on startup. No live batch was interrupted; another server reload was performed only after checking that both operations were idle. All original research-result JSON remains unchanged. Paid recheck quality still needs owner-confirmed real testing.

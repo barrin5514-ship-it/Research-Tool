@@ -1,4 +1,4 @@
-import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards} from './result-view.mjs';
+import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject} from './result-view.mjs';
 let state,filter='All',busy=false,visibleLimit=25,openDetails=new Set(),openAnswers=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
@@ -19,12 +19,13 @@ function render(){
   $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
   $('instagram-confirm').disabled=!browser?.available||state.queue.active>0;
   const videos=dashboardVideos(state.videos);
-  const ideas=collectNewIdeas(videos);
-  const knownProjects=['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'];
+  const projects=state.projects||[];renderProjects(projects);
+  const ideas=collectNewIdeas(videos,projects);
+  const knownProjects=projects;
   $('project-matches').replaceChildren(...knownProjects.flatMap(project=>{
-    const matches=videos.flatMap(video=>(video.result?.recommendations||[]).filter(r=>r.project===project).map(recommendation=>({video,recommendation})));
-    if(!matches.length)return [];
-    const group=el('div',undefined,'panel project-group');group.append(el('h3',project));
+    const matches=videos.flatMap(video=>(video.result?.recommendations||[]).filter(r=>recommendationProject(r,projects)?.id===project.id).map(recommendation=>({video,recommendation})));
+
+    const group=el('div',undefined,'panel project-group');group.append(el('h3',project.name+(project.enabled?'':' (off)')));if(!matches.length)group.append(el('p',project.name+': no matches yet.','small'));
     for(const {video,recommendation} of matches){const idea=el('div',undefined,'idea');idea.append(el('p',recommendation.application),el('p',`Priority: ${recommendation.priority||'unranked'} · NOT VERIFIED`,'small'));const source=el('a','Read the research result');source.href='#research-results';idea.append(source);group.append(idea);}return [group];
   }));
   $('new-ideas').replaceChildren(...(ideas.length?ideas.map(({video,recommendation})=>{const item=el('article',undefined,'idea');item.append(el('h3',video.result?.title||video.title),el('p',recommendation.application));const link=el('a','Original Instagram post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';item.append(link,el('p','NOT VERIFIED · Recommendation only','small'));return item;}):[el('p','No unmatched ideas have been identified yet. Imported posts will stay unprocessed until you start a batch.','small')]));
@@ -38,7 +39,7 @@ function render(){
   const collectionPicker=$('batch-collection'),chosen=collectionPicker.value;collectionPicker.replaceChildren(...names.map(name=>{const option=el('option',name);option.value=name;return option;}));collectionPicker.value=names.includes(chosen)?chosen:'All';
   const batch=state.batch;const eta=q.running?`about ${Math.max(1,Math.ceil(q.estimatedSecondsLeft/60))} min left (estimate)`:(q.active?'finishing current video':'stopped');
   $('batch-progress').textContent=`${q.done||0} of ${q.batchSize} done · ${eta} · batch estimated cost USD ${(batch?.costUSD||0).toFixed(6)}${batch?.unknownUsage?' · some usage unknown; total may be incomplete':''}${q.stopReason?' · '+q.stopReason:''}`;
-  $('pause').disabled=!q.running&&!q.active;
+  $('pause').disabled=!q.running&&!q.active&&!state.rechecks?.running;
   const money=spendingCards(state.spending,state.balance);
   $('spending-tracker').textContent=money.spent;$('spending-tiny').hidden=!money.tiny;
   $('spending-count').textContent=money.count;$('spending-extra').textContent=money.extra;
@@ -46,7 +47,8 @@ function render(){
 
   for(const id of ['batch-size','batch-collection'])$(id).disabled=q.running||q.active>0;
   $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · local vision ${state.localAIEnabled?'on':'off'}`;
-  $('start').disabled=q.running||q.active>0;
+  $('start').disabled=q.running||q.active>0||state.rechecks?.running;
+  $('recheck-status').textContent=state.rechecks?.running?`Re-checking ${state.rechecks.project}: ${state.rechecks.done} of ${state.rechecks.total} done · estimated spend USD ${state.rechecks.costUSD.toFixed(6)}`:state.rechecks?.error||'';
   const selected=videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
   $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
   if(!selected.length)$('library-items').append(el('p','No posts in this collection.'));
@@ -101,4 +103,26 @@ $('pause').onclick=()=>action('/api/stop').then(()=>message('Stopping after the 
 $('refresh-balance').onclick=()=>action('/api/balance').then(()=>message('DeepSeek balance refreshed. No research request was made.')).catch(()=>{});
 $('instagram-connect').onclick=()=>action('/api/instagram/connect').then(r=>{if(r)message(r.message);}).catch(()=>{});
 $('instagram-confirm').onclick=()=>action('/api/instagram/confirm').then(r=>{if(r)message(r.message);}).catch(()=>{});
+
+
+let renderedProjects='';
+function renderProjects(projects){
+ const fingerprint=JSON.stringify(projects);if(fingerprint===renderedProjects)return;renderedProjects=fingerprint;
+ $('my-project-list').replaceChildren(...projects.map(project=>{
+  const row=el('article',undefined,'project-editor');row.append(el('h4',project.name),el('p',project.description,'small'),el('p',project.enabled?'On — included in new analyses':'Off — excluded from new analyses','small'));
+  const details=el('details'),form=el('form');details.append(el('summary','Edit project'));
+  const name=el('input');name.value=project.name;name.required=true;name.maxLength=80;name.setAttribute('aria-label','Project name for '+project.name);
+  const description=el('textarea');description.value=project.description;description.required=true;description.maxLength=3000;description.rows=3;description.setAttribute('aria-label','Project description for '+project.name);
+  const save=el('button','Save changes');save.type='submit';form.append(name,description,save);form.onsubmit=event=>{event.preventDefault();action('/api/projects/save',{id:project.id,name:name.value,description:description.value,enabled:project.enabled}).then(()=>message('Project saved. New analyses will use the updated description.')).catch(()=>{});};details.append(form);row.append(details);
+  const toggle=el('button',project.enabled?'Turn off':'Turn on','secondary');toggle.onclick=()=>action('/api/projects/save',{id:project.id,name:project.name,description:project.description,enabled:!project.enabled}).catch(()=>{});
+  const remove=el('button','Delete project','secondary'),confirmation=el('div');confirmation.hidden=true;confirmation.append(el('p','Delete '+project.name+'? Saved findings will be kept.'));
+  const yes=el('button','Confirm delete'),no=el('button','Cancel','secondary');yes.onclick=()=>action('/api/projects/delete',{id:project.id,confirmed:true}).catch(()=>{});no.onclick=()=>confirmation.hidden=true;confirmation.append(yes,no);remove.onclick=()=>confirmation.hidden=false;
+  const recheck=el('button','Re-check older results','secondary');recheck.disabled=!project.enabled;recheck.onclick=async()=>{try{const preview=await action('/api/projects/recheck/preview',{id:project.id});if(!preview)return;recheckPreview=preview;$('recheck-summary').textContent=`Re-check ${preview.count} videos for ${preview.project}. Estimated cost: up to about $${preview.estimatedUSD.toFixed(4)}. ${preview.note}`;$('recheck-confirm').disabled=preview.count===0;$('recheck-review').hidden=false;$('recheck-review').scrollIntoView({behavior:'smooth',block:'center'});}catch{}};row.append(toggle,remove,recheck,confirmation);return row;
+ }));
+}
+let recheckPreview;
+$('project-add').onsubmit=event=>{event.preventDefault();action('/api/projects/save',{name:$('project-name').value,description:$('project-description').value,enabled:true}).then(()=>{$('project-add').reset();message('Project added.');}).catch(()=>{});};
+$('recheck-confirm').onclick=()=>{if(!recheckPreview)return;action('/api/projects/recheck/confirm',{token:recheckPreview.token,confirmed:true}).then(()=>{$('recheck-review').hidden=true;recheckPreview=null;message('Confirmed re-check started.');}).catch(()=>{});};
+$('recheck-cancel').onclick=()=>{$('recheck-review').hidden=true;recheckPreview=null;};
+
 refresh().catch(e=>message(e.message));setInterval(()=>refresh().catch(()=>message(unavailableMessage)),3000);

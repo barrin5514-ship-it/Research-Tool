@@ -16,7 +16,7 @@ export function validateLocalUrl(raw) {
   return url.origin;
 }
 
-export function normalizeResearch(raw, { model, job, generatedAt = new Date().toISOString() }) {
+export function normalizeResearch(raw, { model, job, generatedAt = new Date().toISOString(),projectContext=PROJECT_CONTEXT }) {
   if (!raw || typeof raw !== 'object' || typeof raw.summary !== 'string' || !raw.summary.trim()) throw new Error('The local model did not return a usable research summary');
   const text = (value, limit = 3000) => typeof value === 'string' ? value.slice(0,limit) : '';
   const list = value => Array.isArray(value) ? value.slice(0,20) : [];
@@ -28,7 +28,7 @@ export function normalizeResearch(raw, { model, job, generatedAt = new Date().to
     technologies: list(raw.technologies).map(x => text(x,100)),
     claims: list(raw.claims).map(x => ({claim:text(typeof x === 'string' ? x : x?.claim,1500),status:'NOT VERIFIED',sources:[]})).filter(x=>x.claim),
     recommendations: list(raw.recommendations).map(x => ({
-      project: Object.hasOwn(PROJECT_CONTEXT,x?.project) ? x.project : 'New ideas',
+      project: Object.hasOwn(projectContext,x?.project) ? x.project : 'New ideas',
       application: text(x?.application,2000), difficulty: text(x?.difficulty,300),
       estimatedCost: text(x?.estimatedCost,500) || 'Not estimated', risks: text(x?.risks,1500),
       worthInvestigating: text(x?.worthInvestigating,500), priority: ['high','medium','low'].includes(x?.priority) ? x.priority : 'low'

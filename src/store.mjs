@@ -1,3 +1,5 @@
+import {randomUUID} from 'node:crypto';
+import {PROJECT_CONTEXT} from './research.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -20,10 +22,26 @@ export class LibraryStore {
         hash TEXT PRIMARY KEY, filename TEXT NOT NULL, imported_at INTEGER NOT NULL,
         added INTEGER NOT NULL, existing INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS export_presence (video_id TEXT PRIMARY KEY REFERENCES videos(id), september INTEGER NOT NULL, october INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,description TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,aliases_json TEXT NOT NULL DEFAULT '[]');
+      CREATE TABLE IF NOT EXISTS project_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS project_rechecks(video_id TEXT NOT NULL REFERENCES videos(id),project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,result_json TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(video_id,project_id,fingerprint));
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
     `);
+    this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}});
   }
+  projects(){return this.db.prepare('SELECT * FROM projects ORDER BY rowid').all().map(p=>({...p,enabled:Boolean(p.enabled),aliases:JSON.parse(p.aliases_json),aliases_json:undefined}));}
+  activeProjects(){return this.projects().filter(p=>p.enabled);}
+  saveProject({id,name,description,enabled=true}){
+    if(typeof name!=='string'||!name.trim()||name.trim().length>80||name.trim().toLowerCase()==='new ideas'||typeof description!=='string'||!description.trim()||description.trim().length>3000||typeof enabled!=='boolean')throw Error('Enter a project name (up to 80 characters) and description (up to 3000 characters).');
+    name=name.trim();description=description.trim();const old=id?this.projects().find(p=>p.id===id):null;if(id&&!old)throw Error('Project not found.');
+    if(this.projects().some(p=>p.id!==id&&p.name.toLowerCase()===name.toLowerCase()))throw Error('That project name already exists.');
+    const aliases=old?[...new Set([...old.aliases,old.name])]:[];id=id||randomUUID();
+    this.db.prepare('INSERT INTO projects VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,name_key=excluded.name_key,description=excluded.description,enabled=excluded.enabled,aliases_json=excluded.aliases_json').run(id,name,name.toLowerCase(),description,Number(enabled),JSON.stringify(aliases));return this.projects().find(p=>p.id===id);
+  }
+  deleteProject(id,confirmed){if(confirmed!==true)throw Error('Confirm deletion first.');if(!this.db.prepare('DELETE FROM projects WHERE id=?').run(id).changes)throw Error('Project not found.');}
+  hasProjectRecheck(videoId,projectId,fingerprint){return Boolean(this.db.prepare('SELECT 1 FROM project_rechecks WHERE video_id=? AND project_id=? AND fingerprint=?').get(videoId,projectId,fingerprint));}
+  saveProjectRecheck(videoId,project,fingerprint,analysis){return this.transaction(()=>{const video=this.get(videoId);if(!video?.result)throw Error('Saved result is unavailable.');const recs=(video.result.recommendations||[]).filter(r=>r.projectId!==project.id&&!( !r.projectId&&[project.name,...project.aliases].includes(r.project)));const replacements=analysis.recommendations.filter(r=>r.project===project.name).map(r=>({...r,projectId:project.id}));video.result.recommendations=[...recs,...replacements];this.db.prepare("UPDATE videos SET result_json=?,review_status='New' WHERE id=?").run(JSON.stringify(video.result),videoId);this.db.prepare('INSERT INTO project_rechecks VALUES(?,?,?,?,?)').run(videoId,project.id,fingerprint,JSON.stringify(analysis),Date.now());});}
   setExportPresence(september,october){return this.transaction(()=>{for(const v of this.list())this.db.prepare('INSERT OR REPLACE INTO export_presence VALUES(?,?,?)').run(v.id,Number(september.has(v.id)),Number(october.has(v.id)));});}
   transaction(fn) {
     this.db.exec('BEGIN IMMEDIATE');
