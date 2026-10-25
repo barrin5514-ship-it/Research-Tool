@@ -5,12 +5,12 @@ export class ResearchQueue {
     this.minIntervalMs = minIntervalMs; this.now = now; this.active = new Map(); this.ids = new Set();
     this.running = false; this.lastStarted = -Infinity; this.pausedUntil = 0;
   }
-  start(limit = 3) {
+  start(limit = 3, allowedIds) {
     if (this.running) return this.status();
     if (this.active.size) return { ...this.status(), message: 'The current videos are finishing. Start another batch after they finish.' };
     if (!Number.isInteger(limit) || limit < 1 || limit > 3) throw new Error('Proof of concept is limited to three videos per batch');
     // Freeze membership of each batch; imports during a batch cannot expand it.
-    this.ids = new Set(this.store.list().filter(x => ['pending','retry_wait'].includes(x.status)).slice(0, limit).map(x => x.id));
+    this.ids = new Set(this.store.list().filter(x => ['pending','retry_wait'].includes(x.status)&&(!allowedIds||allowedIds.has(x.id))).slice(0, limit).map(x => x.id));
     this.running = this.ids.size > 0;
     this.tick();
     if (this.running) this.timer = setInterval(() => this.tick(), 250);

@@ -1,3 +1,4 @@
+import {budgetedFetch,hasVideoApproval} from './deepseek-budget.mjs';
 import { createServer } from 'node:http';
 import { readFile, mkdir, open, unlink } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
@@ -16,6 +17,7 @@ import {recordUsage,readUsage} from './deepseek-usage.mjs';
 import {createBrowserFallback} from './browser-fallback.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const BUDGET_FILE=join(ROOT,'.research-data','deepseek-demo-budget.json');
 const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = 12 * 1024 * 1024;
@@ -26,7 +28,7 @@ async function readJson(req) {
   for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('Import is too large; choose fewer files (12 MiB limit)'); error.status = 413; throw error; } chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Invalid JSON request'); }
 }
-export function createApp({store,queue,localAIEnabled=false,port=5199,onShutdown,browserSession}) {
+export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,onShutdown,browserSession}) {
   const csrf = randomBytes(32).toString('hex');
   const server = createServer(async (req,res) => {
     const origin = `http://127.0.0.1:${server.address()?.port || port}`;
@@ -39,7 +41,7 @@ export function createApp({store,queue,localAIEnabled=false,port=5199,onShutdown
       if (req.headers.host !== new URL(origin).host) return send(403,{error:'Invalid local host'});
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:store.list(),queue:queue.status(),csrf,localAIEnabled,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:store.list(),queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval,
         limitations:['Pilot: at most three videos per batch.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -69,7 +71,8 @@ export function createApp({store,queue,localAIEnabled=false,port=5199,onShutdown
         const items = links.map(raw => ({...normalizeInstagramUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
         return send(200,store.import(items));
       }
-      if (path === '/api/start') return send(200,queue.start(3));
+      if(path==='/api/analyze'){if(!paidApproval||!await hasVideoApproval(BUDGET_FILE,body.id))throw Error('Owner approval is required before analyzing this record.');if(queue.status().active||queue.status().running)throw Error('Wait for the current batch to finish.');const v=store.get(body.id);if(!v)throw Error('Unknown record');if(v.status!=='pending')store.retry(v.id);return send(200,queue.start(1,new Set([v.id])));}
+      if (path === '/api/start') {if(researchProvider==='deepseek')throw Error('Select videos with owner approval before starting paid research.');return send(200,queue.start(3));}
       if (path === '/api/pause') {queue.pause(); return send(200,queue.status());}
       if (path === '/api/retry') {store.retry(body.id);return send(200,{ok:true});}
       if (path === '/api/review') {store.review(body.id,body.status);return send(200,{ok:true});}
@@ -99,7 +102,10 @@ export async function start() {
     const concurrency = 1;
     const browserSession=await createBrowserFallback();
     const localAIEnabled = process.env.RESEARCH_LOCAL_AI === '1';
-    const analyze = process.env.RESEARCH_PROVIDER==='deepseek' ? createDeepSeekResearch({apiKey:process.env.DEEPSEEK_API_KEY,approved:process.env.RESEARCH_DEEPSEEK_APPROVED==='1',onUsage:record=>recordUsage(USAGE_FILE,record)}) : localAIEnabled ? createLocalResearch({baseUrl:process.env.RESEARCH_LOCAL_AI_URL,model:process.env.RESEARCH_LOCAL_MODEL}) : createEvidenceResearch();
+    const researchProvider=process.env.RESEARCH_PROVIDER||'deepseek';
+    if(!['deepseek','local','evidence'].includes(researchProvider))throw Error('Unknown research provider');
+    const paidApproval=process.env.RESEARCH_DEEPSEEK_APPROVED==='1';
+    const analyze = researchProvider==='deepseek' ? createDeepSeekResearch({apiKey:process.env.DEEPSEEK_API_KEY,approved:paidApproval,fetcher:budgetedFetch(BUDGET_FILE),onUsage:record=>recordUsage(USAGE_FILE,record)}) : researchProvider==='local'&&localAIEnabled ? createLocalResearch({baseUrl:process.env.RESEARCH_LOCAL_AI_URL,model:process.env.RESEARCH_LOCAL_MODEL}) : researchProvider==='evidence' ? createEvidenceResearch() : async()=>{throw Error('Local analysis is disabled');};
     const extract = process.env.RESEARCH_ANALYZER_ENTRY ? createAnalyzer({entry:process.env.RESEARCH_ANALYZER_ENTRY}) : undefined;
     const nativeExtractionEnabled = process.platform === 'win32' && process.env.RESEARCH_WINDOWS_EXTRACTION !== '0';
     const nativeExtract = nativeExtractionEnabled ? createWindowsExtraction() : undefined;
@@ -107,9 +113,9 @@ export async function start() {
     store = new LibraryStore(join(data,'library.sqlite')); store.recover();
     queue = new ResearchQueue(store,(job,signal)=>processVideo(job,{scratchRoot:join(data,'scratch'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire}),{concurrency,minIntervalMs:20_000});
     let close;
-    server = createApp({store,queue,port,localAIEnabled,browserSession,onShutdown:()=>close()});
+    server = createApp({store,queue,port,localAIEnabled,researchProvider,paidApproval,browserSession,onShutdown:()=>close()});
     await new Promise((done,fail)=>{server.once('error',fail);server.listen(port,'127.0.0.1',done);});
-    console.log(`Research Library: http://127.0.0.1:${port}\nPilot mode: three videos per batch, concurrency ${concurrency}. No paid API calls.\nStop with Ctrl+C. Media extraction is not complete research.`);
+    console.log(`Research Library: http://127.0.0.1:${port}\nPilot mode: three videos per batch, concurrency ${concurrency}. Research provider: ${researchProvider}; paid approval ${paidApproval?'task limited':'off'}.\nStop with Ctrl+C. Media extraction is not complete research.`);
     let closing=false;
     close=async()=>{if(closing)return;closing=true;server.close();server.closeIdleConnections();await queue.stop();store.close();await release();};
     process.once('SIGINT',()=>close().then(()=>process.exit(0))); process.once('SIGTERM',()=>close().then(()=>process.exit(0)));

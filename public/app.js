@@ -35,10 +35,10 @@ function render(){
   const matches=(x,name)=>name==='All'||(name==='Unassigned'?x.collections.length===0:x.collections.includes(name));
   $('collections').replaceChildren(...names.map(name=>{const button=el('button',undefined,name===filter?'selected':'');button.append(el('span',name),el('span',String(videos.filter(x=>matches(x,name)).length)));button.onclick=()=>{filter=name;render();};return button;}));
   const q=state.queue;
-  $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · local AI ${state.localAIEnabled?'enabled (readiness checked per video)':'off'}`;
+  $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · paid approval ${state.paidApproval?'on for this task':'off'} · local vision ${state.localAIEnabled?'on':'off'}`;
   $('start').disabled=q.running||q.active>0;
   const selected=videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
-  $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);return row;}));
+  $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
   if(!selected.length)$('library-items').append(el('p','No posts in this collection.'));
   if(selected.length>visibleLimit){const more=el('button',`Show 25 more (${selected.length-visibleLimit} remaining)`,'secondary');more.onclick=()=>{visibleLimit+=25;render();};$('library-items').append(more);}
   const researched=selected.filter(x=>x.result||['failed','skipped'].includes(x.status));
@@ -51,7 +51,10 @@ function card(video){
   const title=video.result?.title||video.title;
   heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`,'meta'));
   top.append(heading,el('span',labels[video.status]||video.status,'pill'));box.append(top);
-  const answers=answerSections(video),answerBox=el('div',undefined,'answer-grid'),expanded=openAnswers.has(video.id),explanations=[];
+  if(video.septemberOnly)box.append(el('p','September export only','pill'));
+  const answers=answerSections(video);
+  if(answers){
+  const answerBox=el('div',undefined,'answer-grid'),expanded=openAnswers.has(video.id),explanations=[];
   for(const [key,question] of [['what','What is this?'],['why','Why is it useful?'],['next','What can I do with it?']]){
     const item=el('div'),list=el('ul');for(const bullet of answers[key].bullets)list.append(el('li',bullet));
     const explanation=el('p',answers[key].explanation);explanation.id=`answer-${video.id}-${key}`;explanation.dataset.answerDetails='true';explanation.dataset.videoId=video.id;explanation.hidden=!expanded;
@@ -60,6 +63,7 @@ function card(video){
   const more=el('button',expanded?'Give me less':'Give me more','secondary');more.setAttribute('aria-expanded',String(expanded));more.setAttribute('aria-controls',explanations.map(node=>node.id).join(' '));
   more.onclick=()=>{const show=more.getAttribute('aria-expanded')!=='true';more.setAttribute('aria-expanded',String(show));more.textContent=show?'Give me less':'Give me more';for(const explanation of explanations)explanation.hidden=!show;};
   box.append(answerBox,more);
+  }else{box.append(el('p','Not analyzed yet'));const run=el('button','Run analysis','secondary');run.onclick=()=>action('/api/analyze',{id:video.id}).catch(()=>{});box.append(run);}
   const link=el('a','Open original Instagram video');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   if(video.error)box.append(el('p',`Processing issue: ${video.error.replaceAll('_',' ')}. Check the setup guide and retry when ready.`));
   const result=video.result;

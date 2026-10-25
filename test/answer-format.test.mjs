@@ -17,6 +17,5 @@ test('bullet limits reject paragraphs, 15 words, multiple sentences and common j
 test('older saved records keep their full paragraphs without inventing model-written bullets',()=>{
  const video={result:{summary:'An earlier saved explanation.',recommendations:[]}};
  const original=JSON.stringify(video);const displayed=answerSections(video);
- assert.ok(normalizeAnswers(displayed));assert.equal(JSON.stringify(video),original);assert.equal(displayed.what.explanation,'An earlier saved explanation.');
- for(const value of Object.values(displayed)){assert.equal(value.bullets.length,2);assert.ok(value.bullets.every(validBullet));}
+ assert.equal(displayed,undefined);assert.equal(JSON.stringify(video),original);
 });

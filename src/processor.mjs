@@ -458,7 +458,7 @@ export async function processVideo(job, {
       analyzed = await abortable(analyze({ job, frames, audioPath, transcript:result.transcript, ocr:result.ocr, durationSeconds: duration, signal: attemptSignal, fixture: Boolean(fixturePath) }), attemptSignal);
     } catch (error) {
       interruption(attemptSignal);
-      result.extraction.warnings.push('Local analysis is unavailable or failed. Extracted media was removed; retry when the local provider is ready.');
+      result.extraction.warnings.push('Research provider is unavailable or failed. Extracted media was removed; analysis remains incomplete.');
       return { status: 'needs_analysis', result };
     }
     interruption(attemptSignal);

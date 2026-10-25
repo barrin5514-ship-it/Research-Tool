@@ -19,10 +19,12 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS imports (
         hash TEXT PRIMARY KEY, filename TEXT NOT NULL, imported_at INTEGER NOT NULL,
         added INTEGER NOT NULL, existing INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS export_presence (video_id TEXT PRIMARY KEY REFERENCES videos(id), september INTEGER NOT NULL, october INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
     `);
   }
+  setExportPresence(september,october){return this.transaction(()=>{for(const v of this.list())this.db.prepare('INSERT OR REPLACE INTO export_presence VALUES(?,?,?)').run(v.id,Number(september.has(v.id)),Number(october.has(v.id)));});}
   transaction(fn) {
     this.db.exec('BEGIN IMMEDIATE');
     try { const value = fn(); this.db.exec('COMMIT'); return value; }
@@ -50,7 +52,7 @@ export class LibraryStore {
     const grouped = new Map();
     for (const item of memberships) { if (!grouped.has(item.video_id)) grouped.set(item.video_id,[]); grouped.get(item.video_id).push(item.name); }
     return this.db.prepare('SELECT * FROM videos ORDER BY created_at DESC,id').all().map(row => ({
-      ...row, result: row.result_json ? JSON.parse(row.result_json) : null, result_json: undefined,
+      ...row, septemberOnly: Boolean(this.db.prepare('SELECT 1 FROM export_presence WHERE video_id=? AND september=1 AND october=0').get(row.id)), result: row.result_json ? JSON.parse(row.result_json) : null, result_json: undefined,
       collections: grouped.get(row.id) || []
     }));
   }

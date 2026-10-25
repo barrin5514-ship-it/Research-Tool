@@ -21,26 +21,7 @@ export function resultAnswers(video){
  return {what:shortSummary(video),why:projects.length?`The saved analysis suggests possible uses for ${projects.join(', ')}. These suggestions still need checking.`:'A useful application has not been established from the available evidence.',next:next?(next.length>420?next.slice(0,417)+'…':next):'Read the transcript and check the source before deciding whether to try anything.'};
 }
 
-export function answerSections(video){
- const direct=normalizeAnswers(video.result?.answers);
- if(direct)return direct;
- const longer=resultAnswers(video);
- if(typeof video.result?.summary==='string')longer.what=video.result.summary;
- const savedAction=video.result?.recommendations?.find(r=>r.application?.trim()&&!/\b(no credible|no clear|no specific|unrelated|irrelevant)\b/i.test(r.application));
- if(savedAction)longer.next=savedAction.application;
- // Earlier saved records have no model-written bullets. Keep their full text
- // available without a new model call or rewriting their stored findings.
- const bullets=video.result?{
-  what:['These are saved notes about the original content.','The longer explanation describes what it contains.'],
-  why:['The possible benefits still need checking.','Read the longer explanation before choosing an idea.'],
-  next:['Check the original source before trying the idea.','Start with a small test that you can undo.']
- }:{
-  what:['This post has not been researched yet.','There are no findings to explain yet.'],
-  why:['Its usefulness has not been checked.','No benefits have been confirmed.'],
-  next:['Research the post before choosing an idea.','Check the original source before trying anything.']
- };
- return Object.fromEntries(ANSWER_KEYS.map(key=>[key,{bullets:bullets[key],explanation:longer[key]}]));
-}
+export function answerSections(video){return normalizeAnswers(video.result?.answers);}
 
 export function evidenceLabels(result){
  return [
