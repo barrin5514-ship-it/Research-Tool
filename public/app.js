@@ -1,4 +1,4 @@
-import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts} from './result-view.mjs';
+import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView} from './result-view.mjs';
 let state,filter='All',busy=false,visibleLimit=25,skippedLimit=10,openDetails=new Set(),openAnswers=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
@@ -35,9 +35,9 @@ function render(){
   const totals=researchCounts(state.videos,excluded);$('exclusion-totals').textContent=`${totals.excluded} posts excluded · ${totals.remaining} left to research`;
   const counts=[['Discovered',videos.length],['Analyzed',videos.filter(x=>x.status==='completed').length],['Left to research',totals.remaining],['Excluded',totals.excluded],['Needs research',videos.filter(x=>x.status==='needs_analysis').length],['Skipped',videos.filter(x=>x.status==='skipped').length],['Failed',videos.filter(x=>x.status==='failed').length]];
   $('stats').replaceChildren(...counts.map(([label,value])=>{const box=el('div',undefined,'stat');box.append(el('strong',String(value)),el('span',label));return box;}));
-  const names=[...new Set(['All','Pennywise','Personafy','Tech','Unassigned',...videos.flatMap(x=>x.collections)])];
+  const library=libraryView(videos,excluded),names=library.names;if(!names.includes(filter))filter='All';
   const matches=(x,name)=>name==='All'||(name==='Unassigned'?x.collections.length===0:x.collections.includes(name));
-  $('collections').replaceChildren(...names.map(name=>{const button=el('button',undefined,name===filter?'selected':'');button.append(el('span',name),el('span',String(videos.filter(x=>matches(x,name)).length)));button.onclick=()=>{filter=name;render();};return button;}));
+  $('collections').replaceChildren(...names.map(name=>{const button=el('button',undefined,name===filter?'selected':'');button.append(el('span',name),el('span',String(library.videos.filter(x=>matches(x,name)).length)));button.onclick=()=>{filter=name;render();};return button;}));
   const q=state.queue;
   const collectionPicker=$('batch-collection'),chosen=collectionPicker.value;const batchNames=names.filter(name=>!excluded.some(item=>collectionKey(item)===collectionKey(name)));collectionPicker.replaceChildren(...batchNames.map(name=>{const option=el('option',name);option.value=name;return option;}));collectionPicker.value=batchNames.includes(chosen)?chosen:'All';
   const batch=state.batch;const eta=q.running?`about ${Math.max(1,Math.ceil(q.estimatedSecondsLeft/60))} min left (estimate)`:(q.active?'finishing current video':'stopped');
@@ -52,7 +52,7 @@ function render(){
   $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · local vision ${state.localAIEnabled?'on':'off'}`;
   $('start').disabled=q.running||q.active>0||state.rechecks?.running;
   $('recheck-status').textContent=state.rechecks?.running?`Re-checking ${state.rechecks.project}: ${state.rechecks.done} of ${state.rechecks.total} done · estimated spend USD ${state.rechecks.costUSD.toFixed(6)}`:state.rechecks?.error||'';
-  const selected=videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
+  const selected=library.videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
   $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(collectionExcluded(video,excluded))row.append(el('span','Excluded collection','pill'));if(visualReference(video))row.append(el('span','Skipped: visual reference','pill'));if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
   if(!selected.length)$('library-items').append(el('p','No posts in this collection.'));
   if(selected.length>visibleLimit){const more=el('button',`Show 25 more (${selected.length-visibleLimit} remaining)`,'secondary');more.onclick=()=>{visibleLimit+=25;render();};$('library-items').append(more);}
