@@ -30,12 +30,12 @@ test('transient errors back off, cap retries, and store only sanitized error cod
     store.retry('abc');assert.equal(store.claim(70000).attempts,1);
   }finally{store.close();}
 });
-test('three-video pilot enforces concurrency, isolates failures, and leaves a fourth job untouched',async()=>{
+test('three-video pilot enforces sequential processing, isolates failures, and leaves a fourth job untouched',async()=>{
   const store=new LibraryStore(':memory:');store.import(['aaa','bbb','ccc','ddd'].map(id=>item(id)));
   let active=0,maximum=0;const seen=[];
-  const queue=new ResearchQueue(store,async job=>{active++;maximum=Math.max(maximum,active);seen.push(job.id);await delay(20);active--;if(job.id==='bbb')throw Object.assign(Error('deleted'),{code:'DELETED'});return {status:'needs_analysis',result:{summary:null}};},{concurrency:2,minIntervalMs:0});
+  const queue=new ResearchQueue(store,async job=>{active++;maximum=Math.max(maximum,active);seen.push(job.id);await delay(20);active--;if(job.id==='bbb')throw Object.assign(Error('deleted'),{code:'DELETED'});return {status:'needs_analysis',result:{summary:null}};},{concurrency:1,minIntervalMs:0});
   try{queue.start(3);for(let i=0;i<30&&queue.running;i++){queue.tick();await delay(5);}await until(()=>!queue.running);
-    assert.equal(maximum,2);assert.equal(seen.length,3);assert.equal(store.list().filter(x=>x.status==='pending').length,1);assert.equal(store.get('bbb').status,'failed');
+    assert.equal(maximum,1);assert.equal(seen.length,3);assert.equal(store.list().filter(x=>x.status==='pending').length,1);assert.equal(store.get('bbb').status,'failed');
   }finally{await queue.stop();store.close();}
 });
 test('pause cannot replace a still-active batch, and invalid concurrency is rejected',async()=>{

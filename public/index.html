@@ -19,12 +19,12 @@
 <h3>Instagram sign-in</h3><p id="instagram-status">Checking browser…</p><button id="instagram-connect">Open Research Agent Instagram sign-in</button> <button id="instagram-confirm" class="secondary">I signed in and closed the browser</button>
 <p class="small">Sign in yourself in the separate Research Agent browser, then close it before processing. Personafy's profile is never used.</p>
 </details>
-<div class="toolbar"><p id="queue-state" class="small">Loading…</p><div><button id="start">Process next batch (up to 3)</button><button id="pause" class="secondary">Pause queue</button></div></div>
+<div class="panel batch-controls"><label for="batch-size">Videos per batch</label><select id="batch-size"><option>3</option><option>5</option><option selected>10</option><option>25</option></select><label for="batch-collection">Collection to process</label><select id="batch-collection"><option>All</option></select><p class="small">Start processes the selected batch using DeepSeek. No spending cap or separate approval step.</p><button id="start">Start batch</button><button id="pause" class="secondary">Stop after current video</button><p id="spending-tracker" class="small"></p><p id="deepseek-balance" class="small"></p><button id="refresh-balance" class="secondary">Refresh DeepSeek balance</button></div><div class="toolbar"><p id="queue-state" class="small">Loading…</p><p id="batch-progress" role="status"></p></div>
 <div class="library-layout"><aside class="sidebar"><h3>Collections</h3><nav id="collections" aria-label="Collection filters"></nav><p class="small">Counts include earlier imports. Collection membership does not prove an idea fits a project.</p></aside><div id="library-items"></div></div>
 </section>
 <section id="research-results" class="workspace-section" aria-labelledby="research-heading">
 <p class="eyebrow">02 / UNDERSTAND</p><h2 id="research-heading">Research results</h2><p>What it is, why it may help, and a practical next step. Open “Show more” for the evidence.</p>
-<div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. DeepSeek requires separate approval before any paid call.</p></details>
+<div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. Spending totals are estimates; account balance comes directly from DeepSeek when refreshed.</p></details>
 </section>
 <section id="project-ideas" class="workspace-section" aria-labelledby="ideas-heading">
 <p class="eyebrow">03 / APPLY</p><h2 id="ideas-heading">Project ideas</h2><p>Suggestions for Pennywise, Personafy, Tech, Dev Squad AI and Sims 4 Upgrades. Nothing here changes those projects.</p>

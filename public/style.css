@@ -9,3 +9,5 @@ html{scroll-padding-top:90px}.section-nav{position:sticky;top:0;z-index:2;displa
 #collections button{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;gap:12px;min-width:0;word-break:normal}
 #collections button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 #collections button span:last-child{overflow:visible;text-align:right;font-variant-numeric:tabular-nums}
+
+.batch-controls select{width:100%;max-width:360px}.batch-controls>button{margin:12px 8px 0 0}#batch-progress{font-size:13px;overflow-wrap:anywhere}

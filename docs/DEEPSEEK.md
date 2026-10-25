@@ -1,33 +1,25 @@
 # DeepSeek integration — October 24, 2026
 
-Baseline commit created before edits: `c556e62`.
+DeepSeek is a separate text-only adapter. Research requests go only to https://api.deepseek.com/chat/completions, without redirects. Only bounded transcript text, OCR, source URL, collection names and existing project contexts are sent. No images, cookies or secrets are included in prompts. Keys remain in the ignored server-side .env file. The LM Studio adapter and loopback restriction remain intact. Claims stay NOT VERIFIED.
 
-DeepSeek is a separate text-only adapter. Its fixed destination is `https://api.deepseek.com/chat/completions`; redirects are refused and no configurable remote base URL exists. Tests inject a local stand-in transport; production uses normal fetch. The existing LM Studio loopback restriction and adapter remain intact. Curated documentation retrieval remains separate from the DeepSeek request.
+## Configuration
 
-Only bounded transcript text, OCR text, the Instagram source URL, collection names and existing project contexts are sent. Frames, image data, cookies and the API key are never included in the prompt. DeepSeek suggestions use the existing result shape. Model citations/verification claims are discarded and claims remain NOT VERIFIED; text analysis does not establish visual reasoning or independent fact-checking.
-
-## Configuration and approval
-
-An ignored `.env` file was created with an empty key, evidence-only provider, and paid calls disabled. Put your key in this local file using an editor; do not paste it in chat. `.env.example` contains placeholders only. The launcher and npm start load `.env` server-side. The browser receives no environment values or API key.
-
-`RESEARCH_PROVIDER=deepseek` selects the adapter. `RESEARCH_DEEPSEEK_APPROVED=1` enables paid requests, and must only be set after explicit owner approval. Current defaults are `RESEARCH_PROVIDER=evidence` and `RESEARCH_DEEPSEEK_APPROVED=0`. No real DeepSeek request has been made. No key was copied from another project.
+RESEARCH_PROVIDER=deepseek is the default. Local vision and evidence fallback remain optional and off by default. Dashboard batches start directly when the owner clicks Start batch; there is no spending cap or separate approval step. RESEARCH_DEEPSEEK_APPROVED is retained only for historical one-off scripts and does not gate dashboard batches. Opening the dashboard does not start processing.
 
 ## Usage and pricing
 
-Successful API responses record provider-reported input/output/cache-hit token counts and a USD cost estimate before research parsing, including when model output is invalid. The append-only ledger is `.research-data/deepseek-usage.jsonl`; the dashboard shows the latest100 call records. Missing provider usage is shown as unavailable rather than zero. A transport/HTTP failure cannot establish billable token counts; checking the provider account is required in that case. Automatic paid request retries are not implemented.
+Provider-reported input/output/cache-hit tokens and conservative estimated costs are recorded before research parsing, including invalid model responses. The private ledger is .research-data/deepseek-usage.jsonl. Lifetime totals include all ledger entries; individual dashboard history shows recent non-fixture records. Unknown usage is labeled unknown rather than treated as a known zero charge. Failed model calls are never automatically retried.
 
-Rates checked against https://api-docs.deepseek.com/quick_start/pricing/ : deepseek-flash peak USD0.30/M uncached input, USD0.006/M cached input and USD1.20/M output. Peak rates are deliberately used for conservative estimates; actual off-peak bills may be lower. Model thinking is disabled and output is capped at1200 tokens. Pricing can change; recorded rates and date accompany estimates.
-
-Example estimate: 5000 uncached input tokens plus1200 output tokens costs USD0.00294 at these rates, about0.3 US cents. This is a scenario estimate, not a guaranteed cap on arbitrary transcript input. A first small synthetic test would send no private video content and should cost less; owner approval is still required.
+Rates last checked October 24, 2026: deepseek-flash peak USD0.30 per million uncached input tokens, USD0.006 cached input and USD1.20 output. Source: https://api-docs.deepseek.com/quick_start/pricing/ . Estimates use these conservative rates; they are not invoices. Output remains limited to 1200 tokens, and thinking is disabled.
 
 ## Verification
 
-All53 Windows automated tests pass, including a real local stand-in HTTP server. Complete output: `docs/deepseek-windows-tests.txt`. Tests verify the fixed official request address, plain-text-only payload, project contexts, auth isolation, approval gate, no image reads, usage arithmetic, invalid-output usage recording, and generic sanitized errors. All prior tests pass. JavaScript syntax and Git whitespace checks also pass.
+93 automated Windows tests pass using synthetic jobs and stand-in providers; full output: docs/batches-windows-tests.txt. Earlier real three-video results are recorded in docs/DEEPSEEK_DEMO_RESULTS.md. No new video or paid research call was made while implementing batch controls and spending tracking.
 
-Unverified: a real key/account balance, real DeepSeek response compatibility, actual billed cost, recommendation quality, and the dashboard with a live paid result. No paid calls were made and no target projects or Cobalt files were changed. Usage UI is implemented but has not been visually checked with a live result.
+## Adjustable batches and spending tracker
 
-Changed files: `.gitignore`, `.env` (ignored, blank key), `.env.example`, `Start Research Library.cmd`, `package.json`, `src/deepseek.mjs`, `src/deepseek-usage.mjs`, `src/server.mjs`, `src/processor.mjs`, `public/index.html`, `public/app.js`, `test/deepseek.test.mjs`, this report and the full test-output file. Existing `.processor-test-*` scratch directories were excluded from the baseline commit and ignored without deleting them.
+Choose 3, 5, 10 (default) or 25 videos and a collection, then click Start batch. At the owner's request there is no per-batch spending cap and no separate paid approval step. Starting a batch runs research. Merely opening the dashboard never processes videos.
 
-## Task-limited approvals
+Processing remains sequential with at least 20 seconds after each video finishes. The progress counter counts finished attempts, including failures. Time remaining starts from two minutes per video and adapts to observed durations; it is approximate. Stop after current video lets the active attempt finish and clean up, then prevents new work. A DeepSeek error stops the batch without a paid retry. Server restarts never automatically resume batches. Explicitly queued retries can be included, while fixtures and records not in a waiting state are excluded.
 
-DeepSeek is now the default research provider. Local vision and the evidence provider require explicit selection; there is no automatic evidence fallback. The paid dashboard routes also require approval for the particular video in the private persistent budget. Setting RESEARCH_DEEPSEEK_APPROVED alone does not grant unbounded spending. The October 24 demo budget is inactive and used its three requests; future paid work needs a fresh owner-approved budget. The one-off demo script intentionally refuses to rerun against its existing budget file. Never delete that guard to retry a paid task.
+The tracker shows per-batch and lifetime Research Agent estimated spend and token totals, including earlier synthetic calls. Refresh DeepSeek balance performs a server-side GET to the official https://api.deepseek.com/user/balance endpoint. This is an account query, not a research/model request. The account balance includes other applications using that account; it is not estimated by subtracting this app's costs. A timestamp shows freshness. The key stays server-side. Historical one-off demo scripts retain their original guards.

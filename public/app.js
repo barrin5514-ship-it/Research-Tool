@@ -35,7 +35,16 @@ function render(){
   const matches=(x,name)=>name==='All'||(name==='Unassigned'?x.collections.length===0:x.collections.includes(name));
   $('collections').replaceChildren(...names.map(name=>{const button=el('button',undefined,name===filter?'selected':'');button.append(el('span',name),el('span',String(videos.filter(x=>matches(x,name)).length)));button.onclick=()=>{filter=name;render();};return button;}));
   const q=state.queue;
-  $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · paid approval ${state.paidApproval?'on for this task':'off'} · local vision ${state.localAIEnabled?'on':'off'}`;
+  const collectionPicker=$('batch-collection'),chosen=collectionPicker.value;collectionPicker.replaceChildren(...names.map(name=>{const option=el('option',name);option.value=name;return option;}));collectionPicker.value=names.includes(chosen)?chosen:'All';
+  const batch=state.batch;const eta=q.running?`about ${Math.max(1,Math.ceil(q.estimatedSecondsLeft/60))} min left (estimate)`:(q.active?'finishing current video':'stopped');
+  $('batch-progress').textContent=`${q.done||0} of ${q.batchSize} done · ${eta} · batch estimated cost USD ${(batch?.costUSD||0).toFixed(6)}${batch?.unknownUsage?' · some usage unknown; total may be incomplete':''}${q.stopReason?' · '+q.stopReason:''}`;
+  $('pause').disabled=!q.running&&!q.active;
+  const spending=state.spending;
+  $('spending-tracker').textContent=`Research Agent total estimated spend: USD ${(spending?.estimatedUSD||0).toFixed(6)} · ${spending?.calls||0} calls · ${(spending?.inputTokens||0)+(spending?.outputTokens||0)} tokens${spending?.unknownUsage?' · some usage unknown':''}. Includes historical test calls.`;
+  $('deepseek-balance').textContent=state.balance?`DeepSeek account balance: ${state.balance.balances.map(b=>b.currency+' '+b.total).join(' · ')} · checked ${new Date(state.balance.checkedAt).toLocaleString()}`: 'DeepSeek account balance: not checked. Refresh to fetch the actual account balance.';
+
+  for(const id of ['batch-size','batch-collection'])$(id).disabled=q.running||q.active>0;
+  $('queue-state').textContent=`${q.running?'Queue running':q.active?'Paused; current videos are finishing':'Queue paused'} · ${q.active} active · concurrency ${q.concurrency} · research provider ${state.researchProvider||'deepseek'} · local vision ${state.localAIEnabled?'on':'off'}`;
   $('start').disabled=q.running||q.active>0;
   const selected=videos.filter(x=>matches(x,filter)).sort((a,b)=>Boolean(b.result)-Boolean(a.result));
   $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row');const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',labels[video.status]||video.status,'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
@@ -86,8 +95,9 @@ function card(video){
 }
 $('import').onclick=async()=>{try{const files=[...$('files').files];if(!files.length)return message('Choose saved-post or saved-collection HTML/JSON files first.');if(files.length>10||files.reduce((n,f)=>n+f.size,0)>10*1024*1024)return message('Choose at most 10 files totaling 10 MiB.');const result=await action('/api/import',{files:await Promise.all(files.map(async file=>({name:file.name,content:await file.text()})))});if(result)message(result.results.map(x=>`${x.filename}: ${x.added} new, ${x.existing} existing. ${x.warnings.join(' ')}`).join('\n'));}catch(e){message(e.message);}};
 $('add-links').onclick=()=>action('/api/links',{links:$('links').value,collection:$('manual-collection').value}).then(result=>{if(result)message(`${result.added} new links added; ${result.existing} already known.`);}).catch(()=>{});
-$('start').onclick=()=>action('/api/start').then(result=>{if(result)message(result.message||'Pilot batch started. Up to three videos will be attempted.');}).catch(()=>{});
-$('pause').onclick=()=>action('/api/pause').then(()=>message('Queue paused. Current videos finish and clean up; no new videos start.')).catch(()=>{});
+$('start').onclick=()=>action('/api/start',{size:Number($('batch-size').value),collection:$('batch-collection').value}).then(()=>message('Batch started. Stop finishes the current video before stopping.')).catch(()=>{});
+$('pause').onclick=()=>action('/api/stop').then(()=>message('Stopping after the current video; no further videos will start.')).catch(()=>{});
+$('refresh-balance').onclick=()=>action('/api/balance').then(()=>message('DeepSeek balance refreshed. No research request was made.')).catch(()=>{});
 $('instagram-connect').onclick=()=>action('/api/instagram/connect').then(r=>{if(r)message(r.message);}).catch(()=>{});
 $('instagram-confirm').onclick=()=>action('/api/instagram/confirm').then(r=>{if(r)message(r.message);}).catch(()=>{});
 refresh().catch(e=>message(e.message));setInterval(()=>refresh().catch(()=>message(unavailableMessage)),3000);
