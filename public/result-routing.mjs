@@ -1,0 +1,7 @@
+import {dashboardVideos,collectionExcluded,recommendationProject} from './result-view.mjs';
+import {isRecipeResult} from './recipes.mjs';
+export const newestFirst=(a,b)=>(Number(b.updated_at)||Date.parse(b.result?.provenance?.generatedAt)||Number(b.created_at)||0)-(Number(a.updated_at)||Date.parse(a.result?.provenance?.generatedAt)||Number(a.created_at)||0)||String(a.id).localeCompare(String(b.id));
+export function matchedProjects(video,projects){if(!video.result?.summary?.trim()||['failed','skipped'].includes(video.status)||isRecipeResult(video))return [];return projects.filter(project=>(video.result.recommendations||[]).some(r=>r.application?.trim()&&recommendationProject(r,projects)?.id===project.id));}
+export const projectResultAnchor=(projectId,videoId)=>'project-result-'+encodeURIComponent(projectId)+'-'+encodeURIComponent(videoId);
+export function displayRoutes(videos,projects,excluded=[]){const eligible=dashboardVideos(videos).filter(v=>!collectionExcluded(v,excluded));return {matched:eligible.filter(v=>matchedProjects(v,projects).length).sort(newestFirst),research:eligible.filter(v=>!isRecipeResult(v)&&!matchedProjects(v,projects).length&&(v.result||['failed','skipped'].includes(v.status))).sort(newestFirst)};}
+export function projectVideoIdeas(videos,project,projects){return videos.filter(v=>matchedProjects(v,projects).some(p=>p.id===project.id)).sort(newestFirst).map(video=>({video,recommendations:video.result.recommendations.filter(r=>r.application?.trim()&&recommendationProject(r,projects)?.id===project.id)}));}
