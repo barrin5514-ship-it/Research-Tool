@@ -1,3 +1,4 @@
+import {submitLinks,previewTitle} from './add-links.mjs';
 import {displayRoutes,projectVideoIdeas,projectResultAnchor} from './result-routing.mjs';
 import {lastRunOutcome} from './last-run.mjs';
 import {INPUT_LIMITS,validateImportFile} from './input-limits.mjs';
@@ -8,14 +9,14 @@ import {mountRecipes} from './recipes-view.mjs';
 import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView,combinationSources,hasDeepSeekResult,videoStatus,demoCounts,failedReason,projectIdeaBullets,shortSummary} from './result-view.mjs';
 let shoppingStorage;try{shoppingStorage=window.localStorage;}catch{}
 const renderRecipes=mountRecipes({document,storage:shoppingStorage,copy:text=>navigator.clipboard.writeText(text)});
-let resultFilter='all';
+let resultFilter='all',highlightedLinks=new Set();
 let state,filter='All',busy=false,visibleLimit=25,skippedLimit=10,openDetails=new Set(),openAnswers=new Set(),openCombined=new Set();
 const $=id=>document.getElementById(id);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 const unavailableMessage='The local server is unavailable. Restart it to resume your library.';
 function message(text){$('message').textContent=text;}
 async function action(path,body={}){
-  if(busy)return;busy=true;
+  if(busy)throw Error('Another change is saving. Try adding the link again in a moment.');busy=true;
   try{const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-research-token':state.csrf},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error);await refresh();return result;}
   catch(e){message(e.message);throw e;}finally{busy=false;}
 }
@@ -44,7 +45,9 @@ function render(){
   const q=state.queue;
   const collectionPicker=$('batch-collection'),chosen=[...collectionPicker.selectedOptions].map(o=>o.value);const batchNames=names.filter(name=>!excluded.some(item=>collectionKey(item)===collectionKey(name)));collectionPicker.replaceChildren(...batchNames.map(name=>{const option=el('option',name);option.value=name;option.selected=chosen.includes(name);return option;}));if(!collectionPicker.selectedOptions.length)collectionPicker.options[0].selected=true;collectionPicker.dataset.previous=JSON.stringify([...collectionPicker.selectedOptions].map(o=>o.value));
   const preview=nextBatch(state.videos,{size:Number($('batch-size').value),collection:[...collectionPicker.selectedOptions].map(o=>o.value),excluded});
-  $('batch-preview').replaceChildren(...preview.map(video=>{const row=el('li');row.dataset.videoId=video.id;row.append(el('strong',video.result?.title||video.title),el('span',video.collections.join(' · ')||'Unassigned','small'));const source=el('a','Original post');source.href=video.url;source.target='_blank';source.rel='noopener noreferrer';row.append(source);return row;}));
+  const previewScroll=$('batch-preview').scrollTop;
+  $('batch-preview').replaceChildren(...preview.map(video=>{const row=el('li');row.dataset.videoId=video.id;row.classList.toggle('just-added-link',highlightedLinks.has(video.id));row.append(el('strong',previewTitle(video)),el('span',video.collections.join(' · ')||'Unassigned','small'));const source=el('a','Original post');source.href=video.url;source.target='_blank';source.rel='noopener noreferrer';row.append(source);return row;}));
+  $('batch-preview').scrollTop=previewScroll;
   $('batch-preview-count').textContent=preview.length+' posts in the next batch'+(q.running||q.active?' — updates as the current run finishes.':'.');
   if(!preview.length)$('batch-preview').append(el('li','No posts are ready in these collections.'));
 
@@ -123,7 +126,7 @@ function card(video,{includeId=true,scope=''}={}){
   return box;
 }
 $('import').onclick=async()=>{try{const files=[...$('files').files];if(!files.length)return message('Choose saved-post or saved-collection HTML/JSON files first.');if(files.length>INPUT_LIMITS.importFilesPerRequest)return message('Choose at most 10 files.');for(const file of files)validateImportFile(file.name,file.size);const result=await action('/api/import',{files:await Promise.all(files.map(async file=>({name:file.name,content:await file.text()})))});if(result)message(result.results.map(x=>`${x.filename}: ${x.added} new, ${x.existing} existing. ${x.warnings.join(' ')}`).join('\n'));}catch(e){message(e.message);}};
-$('add-links').onclick=()=>action('/api/links',{links:$('links').value,collection:$('manual-collection').value}).then(result=>{if(result)message(`${result.added} new links added; ${result.existing} already known.`);}).catch(()=>{});
+$('add-links').onclick=async()=>{const button=$('add-links');if(button.disabled)return;button.disabled=true;highlightedLinks=new Set();try{await submitLinks({links:$('links').value,collection:$('manual-collection').value,request:body=>action('/api/links',body),show:text=>{$('links-feedback').textContent=text;},accepted:result=>{highlightedLinks=new Set(result.ids||[]);const picker=$('batch-collection');const ids=new Set(result.ids||[]),eligible=state.videos.filter(v=>ids.has(v.id)&&['pending','retry_wait'].includes(v.status));if(!eligible.length)return 'Open its saved result, or queue another analysis if needed.';if(eligible.every(v=>collectionExcluded(v,state.excludedCollections||[])))return 'Saved in an excluded collection; include it to see it in the preview.';const chosen=[...picker.selectedOptions].map(o=>o.value),inFilter=eligible.every(v=>chosen.includes('All')||chosen.some(name=>v.collections.includes(name)||name==='Unassigned'&&!v.collections.length));if(!inFilter)for(const option of picker.options)option.selected=option.value==='All';render();const item=[...$('batch-preview').children].find(row=>ids.has(row.dataset.videoId));if(!item)return 'It is waiting in My library; the preview shows the next selected posts.';return !inFilter?'Preview now shows all collections so this link is visible.':'Highlighted in Next batch preview.';}});}finally{button.disabled=false;}};
 $('research-filter').onchange=()=>{resultFilter=$('research-filter').value;render();};
 $('batch-size').onchange=()=>render();
 $('batch-collection').onchange=()=>{const picker=$('batch-collection');const values=[...picker.selectedOptions].map(o=>o.value),previous=JSON.parse(picker.dataset.previous||'[]');if(values.includes('All')&&!previous.includes('All'))for(const option of picker.options)option.selected=option.value==='All';else if(values.length>1)for(const option of picker.options)if(option.value==='All')option.selected=false;render();};

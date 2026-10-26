@@ -15,7 +15,7 @@
 <h3>Import saved posts</h3><p>Choose both saved-post and saved-collection JSON or HTML files from your extracted Instagram export. Reimporting keeps earlier work and skips duplicates.</p>
 <div class="import-row"><input id="files" type="file" accept=".html,.htm,.json" multiple aria-label="Saved-post and collection export files"><button id="import">Import export files</button></div>
 <label for="links">Or paste up to three public Instagram links</label><textarea id="links" rows="2" placeholder="https://www.instagram.com/reel/…"></textarea>
-<div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div>
+<div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div><p id="links-feedback" class="link-feedback" role="status" aria-live="polite"></p>
 <h3>Instagram sign-in</h3><p id="instagram-status">Checking browser…</p><button id="instagram-connect">Open Research Agent Instagram sign-in</button> <button id="instagram-confirm" class="secondary">I signed in and closed the browser</button>
 <p class="small">Sign in yourself in the separate Research Agent browser, then close it before processing. Personafy's profile is never used.</p>
 </details>

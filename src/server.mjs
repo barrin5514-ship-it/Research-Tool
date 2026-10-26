@@ -26,6 +26,7 @@ const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = INPUT_LIMITS.importRequestBytes;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/add-links.mjs',['add-links.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/result-routing.mjs',['result-routing.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/last-run.mjs',['last-run.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/input-limits.mjs',['input-limits.mjs','text/javascript; charset=utf-8']);
@@ -81,7 +82,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         if (links.length < 1 || links.length > 3) throw new Error('Paste one to three links for this pilot');
         const collection = ['Pennywise','Personafy','Tech'].includes(body.collection) ? body.collection : undefined;
         const items = links.map(raw => ({...normalizePastedPostUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
-        return send(200,store.import(items));
+        const addedIds=items.filter(item=>!store.get(item.shortcode)).map(item=>item.shortcode);return send(200,{...store.import(items),ids:items.map(item=>item.shortcode),addedIds});
       }
       if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id));}
       if(path==='/api/projects/combine/confirm'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.confirm(body));}
