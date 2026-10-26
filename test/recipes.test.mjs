@@ -42,3 +42,12 @@ test('recipe controls build and copy the checked shopping list; fallback exposes
  const pantry=document.getElementById('grocery-items').children.find(n=>n.children[0].textContent==='Pantry');const box=pantry.children[1].children[0].children[0].children[0];box.checked=true;box.onchange();await document.getElementById('copy-groceries').onclick();assert.equal(copied,'Pantry\n[x] 2 cups rice');assert.match(document.getElementById('grocery-count').textContent,/0 items left/);
  const reload=fakeDocument();mountRecipes({document:reload,storage,copy:async()=>{throw Error('blocked');}})([video('a',['1 cup rice']),video('b',['1 cup rice'])]);assert.match(reload.getElementById('grocery-count').textContent,/2 recipes selected · 0 items left/);await reload.getElementById('copy-groceries').onclick();const text=reload.getElementById('grocery-items').children.at(-1);assert.equal(text.tag,'textarea');assert.equal(text.value,'Pantry\n[x] 2 cups rice');assert.equal(text.selected,true);
 });
+
+import {isRecipeResult,researchOnly} from '../public/recipes.mjs';
+test('food results appear exclusively in Recipes, including incomplete saved food extractions',()=>{
+ const inputs=[video('complete',['1 cup rice']),{...video('partial',[]),result:{transcript:'Saved speech'}},{...video('classified',[]),collections:[],result:{contentType:'food',summary:'Saved food'}},{...video('structured',[]),collections:['Tech']},{id:'research',collections:['Tech'],result:{summary:'Coding tool'}},{id:'unprocessed',collections:['food'],result:null}];
+ const before=JSON.stringify(inputs);const recipes=savedRecipes(inputs);const research=researchOnly(inputs);assert.deepEqual(recipes.map(r=>r.id),['complete','partial','classified','structured']);assert.deepEqual(research.map(r=>r.id),['research','unprocessed']);assert.ok(recipes.every(r=>!research.some(v=>v.id===r.id)));assert.equal(isRecipeResult(inputs[1]),true);assert.equal(recipes[1].recipe.fullRecipeShown,false);assert.deepEqual(recipes[1].recipe.ingredients,[]);assert.equal(JSON.stringify(inputs),before);
+});
+test('recipe count shares exclusion/fixture rules and does not depend on research filters',()=>{
+ const excluded=video('excluded',['1 egg']);excluded.collections=['food','reference'];const fixture=video('fixture',['1 egg']);fixture.result.extraction={fixture:true};const inputs=[video('one',['1 egg']),excluded,fixture];assert.equal(savedRecipes(inputs,['reference']).length,1);
+});

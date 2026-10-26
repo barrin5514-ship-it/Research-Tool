@@ -1,9 +1,11 @@
 import {normalizeRecipe} from './answer-format.mjs';
 import {dashboardVideos,collectionExcluded,visualReference} from './result-view.mjs';
 export const GROCERY_GROUPS=['Produce','Meat','Dairy','Pantry','Other'];
+export function isRecipeResult(video){const result=video?.result;return Boolean(result&&(result.recipe&&typeof result.recipe==='object'||video.collections?.some(name=>name.trim().toLowerCase()==='food')||['food','recipe'].includes(result.contentType)));}
+export function researchOnly(videos){return videos.filter(video=>!isRecipeResult(video));}
 export function savedRecipes(videos,excluded=[]){return dashboardVideos(videos).filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&v.status!=='skipped').flatMap(video=>{
- const recipe=normalizeRecipe(video.result?.recipe),food=video.collections?.some(name=>name.trim().toLowerCase()==='food');
- if(!recipe&&!(food&&video.result?.summary?.trim()))return [];
+ if(!isRecipeResult(video))return [];
+ const recipe=normalizeRecipe(video.result?.recipe);
  return [{id:video.id,title:video.result?.title||video.title,url:video.url,recipe:recipe||{ingredients:[],instructions:[],fullRecipeShown:false},missing:!recipe}];
 });}
 const units={cup:['cup','cups'],tbsp:['tbsp','tbsp'],tsp:['tsp','tsp'],g:['g','g'],kg:['kg','kg'],mg:['mg','mg'],ml:['ml','ml'],l:['l','l'],oz:['oz','oz'],lb:['lb','lb'],clove:['clove','cloves'],can:['can','cans']};

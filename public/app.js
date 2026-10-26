@@ -1,3 +1,4 @@
+import {savedRecipes,researchOnly} from './recipes.mjs';
 import {mountRecipes} from './recipes-view.mjs';
 import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView,combinationSources,hasDeepSeekResult,videoStatus,demoCounts,failedReason,projectIdeaBullets,shortSummary} from './result-view.mjs';
 let shoppingStorage;try{shoppingStorage=window.localStorage;}catch{}
@@ -23,7 +24,7 @@ function render(){
   $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
   $('instagram-confirm').disabled=!browser?.available||state.queue.active>0;
   const videos=dashboardVideos(state.videos),excluded=state.excludedCollections||[];
-  renderExclusions(videos,excluded);renderSkipped(videos,excluded);renderRecipes(videos,excluded);
+  renderExclusions(videos,excluded);renderSkipped(videos,excluded);renderRecipes(videos,excluded);$('recipe-results-link').textContent='Recipes are in the Recipes tab ('+savedRecipes(videos,excluded).length+')';
   const ideaVideos=videos.filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&v.status!=='skipped');
   const projects=state.projects||[];renderProjects(projects,ideaVideos);
   const ideas=collectNewIdeas(ideaVideos,projects);
@@ -59,7 +60,7 @@ function render(){
   $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row'+(batchIds.has(video.id)?' batch-picked':''));const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',videoStatus(video),'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(video.status==='failed'){row.append(el('p',failedReason(video),'small'));const retry=el('button','Try again','secondary');retry.onclick=()=>action('/api/retry',{id:video.id}).catch(()=>{});row.append(retry);}if(collectionExcluded(video,excluded))row.append(el('span','Excluded collection','pill'));if(visualReference(video))row.append(el('span','Skipped: visual reference','pill'));if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
   if(!selected.length)$('library-items').append(el('p','No posts left to do in this collection. Finished notes are in Research results.'));
   if(selected.length>visibleLimit){const more=el('button',`Show 25 more (${selected.length-visibleLimit} remaining)`,'secondary');more.onclick=()=>{visibleLimit+=25;render();};$('library-items').append(more);}
-  const researched=library.videos.filter(x=>(hasDeepSeekResult(x)||x.result||x.status==='failed')&&(resultFilter!=='just-finished'||batchIds.has(x.id))).sort((a,b)=>b.updated_at-a.updated_at);
+  const researched=researchOnly(library.videos).filter(x=>(hasDeepSeekResult(x)||x.result||x.status==='failed')&&(resultFilter!=='just-finished'||batchIds.has(x.id))).sort((a,b)=>b.updated_at-a.updated_at);
   $('results').replaceChildren(...researched.slice(0,visibleLimit).map(card));
   if(!researched.length)$('results').append(el('div',resultFilter==='just-finished'?'No results from the latest batch yet.':'No research results yet.','empty'));
   if(researched.length>visibleLimit){const more=el('button','Show more results','secondary');more.onclick=()=>{visibleLimit+=25;render();};$('results').append(more);}
