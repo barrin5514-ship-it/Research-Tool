@@ -1,3 +1,4 @@
+import {ReferenceHandoff} from './reference-handoff.mjs';
 import {SavedSync} from './saved-sync.mjs';
 import {Wishlist} from './wishlist.mjs';
 import {SavedAnalysis} from './saved-analysis.mjs';
@@ -48,10 +49,11 @@ async function readJson(req) {
 export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations}) {
   const savedAnalysis=new SavedAnalysis({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
   const researchBusy=()=>queue.running||queue.active.size>0||batches?.starting||savedAnalysis.running||rechecks?.status().running||combinations?.status().running;
-  const sync=new SavedSync({store,browser:browserSession,isBusy:researchBusy});
-  const wishlist=new Wishlist({store,isBusy:()=>researchBusy()||sync.running});
+  const referenceHandoff=new ReferenceHandoff({store,browser:browserSession,isBusy:researchBusy});
+  const sync=new SavedSync({store,browser:browserSession,isBusy:()=>researchBusy()||referenceHandoff.running,handoff:referenceHandoff});
+  const wishlist=new Wishlist({store,isBusy:()=>researchBusy()||sync.running||referenceHandoff.running});
   let maintenance=Promise.resolve();
-  const timer=setInterval(()=>{if(wishlist.running||sync.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
+  const timer=setInterval(()=>{if(wishlist.running||sync.running||referenceHandoff.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
   const csrf = randomBytes(32).toString('hex');
   const server = createServer(async (req,res) => {
     const origin = `http://127.0.0.1:${server.address()?.port || port}`;
@@ -65,7 +67,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -95,6 +97,10 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const items = links.map(raw => ({...normalizePastedPostUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
         const addedIds=items.filter(item=>!store.get(item.shortcode)).map(item=>item.shortcode);return send(200,{...store.import(items),ids:items.map(item=>item.shortcode),addedIds});
       }
+      if(path==='/api/reference-handoff/settings')return send(200,referenceHandoff.configure(body.enabled));
+      if(path==='/api/reference-handoff/retry'){if(sync.running||wishlist.running)throw Error('Wait for current sync or price checks to finish.');return send(200,await referenceHandoff.retry(body.id));}
+      if(path==='/api/stop'&&referenceHandoff.running){referenceHandoff.stop();return send(200,{message:'Reference hand-off will stop safely.'});}
+      if(referenceHandoff.running)throw Error('Wait for the reference hand-off to finish.');
       if(path==='/api/saved-sync/settings')return send(200,sync.configure(body));
       if(path==='/api/wishlist/confirm'){if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,wishlist.confirm(body));}
       if(sync.running||wishlist.running)throw Error('Wait for the saved-post or price check to finish.');
@@ -121,7 +127,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       return send(404,{error:'Not found'});
     } catch(e) { return send(e.status || 400,{error:e.message || 'Request failed'}); }
   });
-  server.maintenanceClose=async()=>{clearInterval(timer);await maintenance;};
+  server.maintenanceClose=async()=>{clearInterval(timer);referenceHandoff.stop();await maintenance;await referenceHandoff.finished;};
   server.on('close',()=>clearInterval(timer));
   return server;
 }

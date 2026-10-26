@@ -16,8 +16,8 @@ try {
   $headers=@{origin=$origin;'x-research-token'=$state.csrf}
   Invoke-RestMethod "$origin/api/stop" -Method Post -Headers $headers -ContentType application/json -Body '{}' -TimeoutSec 15 | Out-Null
   $until=(Get-Date).AddMinutes(5)
-  do { $state=Read-State;if(!$state){break};if(!$state.queue.active -and !$state.rechecks.running -and !$state.combining.running -and !$state.savedSync.running -and !$state.wishlist.running){break};Start-Sleep -Seconds 2 } while((Get-Date) -lt $until)
-  if($state -and ($state.queue.active -or $state.rechecks.running -or $state.combining.running -or $state.savedSync.running -or $state.wishlist.running)){throw 'The current work is still finishing. Try Stop Research Tool again shortly.'}
+  do { $state=Read-State;if(!$state){break};if(!$state.queue.active -and !$state.rechecks.running -and !$state.combining.running -and !$state.savedSync.running -and !$state.wishlist.running -and !$state.referenceHandoff.running){break};Start-Sleep -Seconds 2 } while((Get-Date) -lt $until)
+  if($state -and ($state.queue.active -or $state.rechecks.running -or $state.combining.running -or $state.savedSync.running -or $state.wishlist.running -or $state.referenceHandoff.running)){throw 'The current work is still finishing. Try Stop Research Tool again shortly.'}
   if($state){Invoke-RestMethod "$origin/api/shutdown" -Method Post -Headers @{origin=$origin;'x-research-token'=$state.csrf} -ContentType application/json -Body '{}' -TimeoutSec 30 | Out-Null}
   $until=(Get-Date).AddSeconds(30);while((Read-State) -and (Get-Date) -lt $until){Start-Sleep -Milliseconds 500}
   if(Read-State){throw 'Research Tool has not finished shutting down. Try again shortly.'}
