@@ -1,0 +1,2 @@
+addEventListener('error',event=>{const message=document.getElementById('message');if(message)message.textContent='The page could not finish loading: '+(event.message||'A local display file was unavailable.');});
+addEventListener('unhandledrejection',event=>{const message=document.getElementById('message');if(message)message.textContent='The display could not finish loading: '+(event.reason?.message||'Please reload the page.');});
