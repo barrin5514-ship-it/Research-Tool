@@ -1,0 +1,13 @@
+# Recipes and grocery list
+
+The Recipes navigation item reads saved food analyses only. Valid saved recipes show their original ingredient lines, numbered instructions and source link. Older analyzed food results without recipe details show empty ingredients/steps and Full recipe not shown. This feature does not infer a recipe from a summary or process any video.
+
+Check recipes to assemble a grocery list. Known ingredients are grouped into Produce, Meat, Dairy, Pantry or Other. Matching ingredient names (case/spacing ignored) and matching units are added exactly, including fractions. Unit spelling aliases such as cup/cups or tablespoon/tbsp match; different units are never converted. Rice and brown rice stay separate. Missing amounts, ranges, unknown units and qualified amounts remain separate, unchanged lines. Common counted whole ingredients, such as eggs, can be added as counts. Groups are simple local word rules, not an AI judgment; unfamiliar items stay in Other.
+
+Shopping checkmarks and selected recipe IDs are stored only in this browser's local storage. A changed total has a different checklist key so a previously bought amount is not mistaken for the new amount. No new database records or API routes write shopping data. Copy list includes group headings and checked/unchecked markers. If clipboard access fails, a selectable text box appears. If browser storage is blocked, the list still works for the current visit and reports that it cannot save changes.
+
+Implementation is original project code, using existing browser/Node capabilities. No third-party app code or new dependencies. Existing exclusions and hidden synthetic fixtures also apply to Recipes.
+
+Validation: unit tests cover merging, aliases, fractions, unknown/missing amounts, separate units, groups, original data preservation, storage, copy text and clipboard failure fallback; a local HTTP test verifies the navigation and module routes. Browser acceptance uses a separate in-memory sample dashboard on port 5201, with explicitly labeled SAMPLE recipes. No samples are imported into the real database. The current real library contains zero saved structured recipes and zero analyzed food posts, so the live view shows an honest empty state. No paid calls or video processing were used.
+
+Final Windows result: 130/130 tests passed (zero failures/skips). An initial existing local project-API test hit ECONNRESET; isolated and full reruns passed. The initial output is retained separately rather than hidden. Live data and usage hashes were unchanged across restart. Screenshots: ignored .research-data/recipes-sample.jpg (clearly labeled synthetic sample view) and recipes-live.jpg (actual empty library view).

@@ -5,7 +5,7 @@
 <header><div class="brand">R<span>Research Library</span></div><span class="badge">LOCAL RESEARCH MVP</span></header>
 <main>
 <div class="intro"><p class="eyebrow">FROM SAVED VIDEOS TO USEFUL IDEAS</p><h1>Find something worth trying.</h1><p>Your saved posts, clear research notes, and ideas for your projects.</p></div>
-<nav class="section-nav" aria-label="Main sections"><a href="#my-library">My library</a><a href="#research-results">Research results</a><a href="#project-ideas">Project ideas</a></nav>
+<nav class="section-nav" aria-label="Main sections"><a href="#my-library">My library</a><a href="#research-results">Research results</a><a href="#project-ideas">Project ideas</a><a href="#recipes">Recipes</a></nav>
 <p class="notice">Research notes are suggestions, not verified facts. Speech transcription, reading on-screen text, and visual reasoning are shown separately.</p>
 <div id="message" role="status" aria-live="polite"></div>
 <section id="my-library" class="workspace-section" aria-labelledby="library-heading">
@@ -29,6 +29,10 @@
 <section id="project-ideas" class="workspace-section" aria-labelledby="ideas-heading">
 <p class="eyebrow">03 / APPLY</p><h2 id="ideas-heading">Project ideas</h2><p>Suggestions for your projects. Nothing here changes those projects.</p><section class="my-projects" aria-label="Project cards"><details><summary>Add project</summary><form id="project-add"><label for="project-name">Project name</label><input id="project-name" required maxlength="80"><label for="project-description">What is this project, and what ideas should match?</label><textarea id="project-description" required maxlength="3000" rows="3"></textarea><button type="submit">Add project</button></form></details><div id="my-project-list"></div><div id="recheck-review" hidden><p id="recheck-summary"></p><button id="recheck-confirm">Confirm re-check</button><button id="recheck-cancel" class="secondary">Cancel</button></div><p id="recheck-status" role="status"></p></section>
 <div id="combine-review" class="panel" hidden><p id="combine-summary"></p><button id="combine-confirm">Confirm combine</button><button id="combine-cancel" class="secondary">Cancel</button></div><p id="combine-status" role="status"></p><div class="panel ideas-panel"><h3>New ideas</h3><p>Useful ideas without a supported project match stay here.</p><div id="new-ideas"></div></div>
+</section>
+<section id="recipes" class="workspace-section" aria-labelledby="recipes-heading">
+<p class="eyebrow">04 / COOK</p><h2 id="recipes-heading">Recipes</h2><p>Saved ingredients and steps from food posts. Missing details stay missing.</p><p id="recipe-count" class="small"></p>
+<div class="recipes-layout"><div id="recipe-list"></div><aside class="panel grocery-panel" aria-labelledby="grocery-heading"><h3 id="grocery-heading">Grocery list</h3><p>Check recipes to combine their ingredients. Only matching ingredients and units are added together.</p><p class="small">Different units and unclear amounts stay separate. Selections and shopping checkmarks are saved in this browser.</p><p id="grocery-count" class="small"></p><button id="copy-groceries" class="secondary" disabled>Copy list</button><p id="grocery-status" role="status" aria-live="polite"></p><div id="grocery-items"></div></aside></div>
 </section>
 <footer>Videos, recordings, audio and sampled frames are temporary. Your library keeps text findings and sources. Claims remain NOT VERIFIED until checked independently.</footer>
 </main></body></html>

@@ -1,0 +1,21 @@
+✔ projects seed once, support edits/toggles/deletion, and never resurrect after reopening (63.8959ms)
+✔ each DeepSeek call reads current active projects, and unmatched suggestions become New ideas (14.5671ms)
+✔ saved-result recheck previews free, requires confirmation and preserves answers and unrelated matches (9.1549ms)
+✔ changed projects invalidate recheck previews; running batches block rechecks; failures preserve old findings (3.7857ms)
+✔ deleted project matches remain saved and display as New ideas (0.3397ms)
+✔ project API enforces local CSRF and deletion/recheck confirmation without model calls (180.0695ms)
+✔ recipe view includes saved recipes and analyzed food; never invents missing details (1.8258ms)
+✔ matching units add exact amounts; different units, qualifiers and unknown amounts stay separate (11.6507ms)
+✔ fractions, decimals and unit aliases combine without converting units or inventing amounts (0.676ms)
+✔ grouping uses known food words and leaves unknown ingredients in Other (0.6075ms)
+✔ shopping checks remain stable across source ordering and reset for changed amounts (0.4343ms)
+✔ shopping selections/checkmarks survive reload; blocked or malformed storage is safe (0.4507ms)
+✔ Recipes tab and modules are served locally without enabling analysis (129.0915ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 931.2664

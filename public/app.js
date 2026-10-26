@@ -1,4 +1,7 @@
+import {mountRecipes} from './recipes-view.mjs';
 import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView,combinationSources,hasDeepSeekResult,videoStatus,demoCounts,failedReason,projectIdeaBullets,shortSummary} from './result-view.mjs';
+let shoppingStorage;try{shoppingStorage=window.localStorage;}catch{}
+const renderRecipes=mountRecipes({document,storage:shoppingStorage,copy:text=>navigator.clipboard.writeText(text)});
 let resultFilter='all';
 let state,filter='All',busy=false,visibleLimit=25,skippedLimit=10,openDetails=new Set(),openAnswers=new Set(),openCombined=new Set();
 const $=id=>document.getElementById(id);
@@ -20,7 +23,7 @@ function render(){
   $('instagram-connect').disabled=!browser?.available||state.queue.active>0;
   $('instagram-confirm').disabled=!browser?.available||state.queue.active>0;
   const videos=dashboardVideos(state.videos),excluded=state.excludedCollections||[];
-  renderExclusions(videos,excluded);renderSkipped(videos,excluded);
+  renderExclusions(videos,excluded);renderSkipped(videos,excluded);renderRecipes(videos,excluded);
   const ideaVideos=videos.filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&v.status!=='skipped');
   const projects=state.projects||[];renderProjects(projects,ideaVideos);
   const ideas=collectNewIdeas(ideaVideos,projects);
