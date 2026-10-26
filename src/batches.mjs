@@ -1,3 +1,4 @@
+import {nextBatch} from '../public/batch-preview.mjs';
 import {randomUUID} from 'node:crypto';
 import {mkdir,readFile,writeFile,readdir,stat} from 'node:fs/promises';
 import {join} from 'node:path';
@@ -10,7 +11,7 @@ export class BatchController{
   if(this.starting||this.queue.running||this.queue.active.size)throw Error('Wait for the current batch to finish.');
   if(![3,5,10,25].includes(size)&&!(size===1&&typeof id==='string'))throw Error('Choose 3, 5, 10 or 25 videos.');
   if(!this.apiKey?.trim())throw Error('Configure the server-side DeepSeek key first.');
-  const videos=this.store.list().filter(v=>!isTestFixture(v)&&!this.store.isExcluded(v)&&(!id||v.id===id)&&['pending','retry_wait'].includes(v.status)&&(collection==='All'||v.collections.includes(collection)||(collection==='Unassigned'&&!v.collections.length))).slice(0,size).map(v=>({id:v.id,url:v.url,title:v.title,collections:v.collections}));
+  const videos=nextBatch(this.store.list(),{size,collection,id,excluded:this.store.excludedCollections()}).map(v=>({id:v.id,url:v.url,title:v.title,collections:v.collections}));
   if(!videos.length)throw Error('No waiting videos are available in this collection.');
   this.starting=true;this.cancelStart=false;
   try{await this.pendingWrite;await mkdir(this.dataRoot,{recursive:true});const file=join(this.dataRoot,`batch-${randomUUID()}.json`);const budget={active:true,mode:'tracking',maxCalls:videos.length,videos,requests:[]};await writeFile(file,JSON.stringify(budget,null,2),{flag:'wx'});this.current={file,budget,collection};if(this.cancelStart){this.end();await this.pendingWrite;return this.queue.status();}return this.queue.start(size,new Set(videos.map(v=>v.id)));}finally{this.starting=false;}

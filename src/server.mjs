@@ -1,3 +1,4 @@
+import {thumbnailVideos,readThumbnail} from './thumbnails.mjs';
 import {ProjectCombinations} from './project-combinations.mjs';
 import {researchCounts,visualReference} from '../public/result-view.mjs';
 import {ProjectRechecks} from './project-rechecks.mjs';
@@ -24,6 +25,8 @@ const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = 12 * 1024 * 1024;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/thumbnail-view.mjs',['thumbnail-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/batch-preview.mjs',['batch-preview.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/recipes.mjs',['recipes.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/recipes-view.mjs',['recipes-view.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/answer-format.mjs',['answer-format.mjs','text/javascript; charset=utf-8']);
@@ -32,7 +35,7 @@ async function readJson(req) {
   for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('Import is too large; choose fewer files (12 MiB limit)'); error.status = 413; throw error; } chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Invalid JSON request'); }
 }
-export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,onShutdown,browserSession,batches,balanceTracker,rechecks,combinations}) {
+export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations}) {
   const csrf = randomBytes(32).toString('hex');
   const server = createServer(async (req,res) => {
     const origin = `http://127.0.0.1:${server.address()?.port || port}`;
@@ -45,7 +48,8 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if (req.headers.host !== new URL(origin).host) return send(403,{error:'Invalid local host'});
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:store.list(),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -124,7 +128,7 @@ export async function start() {
     const nativeExtract = nativeExtractionEnabled ? createWindowsExtraction() : undefined;
     await cleanupStaleAttempts(join(data,'scratch'));
     store = new LibraryStore(join(data,'library.sqlite')); store.recover();
-    queue = new ResearchQueue(store,(job,signal)=>store.isExcluded(store.get(job.id))?Promise.resolve({status:'skipped',result:{...(job.result||{}),summary:job.result?.summary||'Skipped: excluded collection',skipReason:'excluded_collection'}}):processVideo(job,{scratchRoot:join(data,'scratch'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire}),{concurrency,minIntervalMs:20_000});
+    queue = new ResearchQueue(store,(job,signal)=>store.isExcluded(store.get(job.id))?Promise.resolve({status:'skipped',result:{...(job.result||{}),summary:job.result?.summary||'Skipped: excluded collection',skipReason:'excluded_collection'}}):processVideo(job,{scratchRoot:join(data,'scratch'),thumbnailRoot:join(data,'thumbnails'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire}),{concurrency,minIntervalMs:20_000});
     batches=new BatchController({store,queue,dataRoot:join(data,'batches'),apiKey:process.env.DEEPSEEK_API_KEY,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const rechecks=new ProjectRechecks({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches.starting,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const combinations=new ProjectCombinations({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches.starting||rechecks.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});

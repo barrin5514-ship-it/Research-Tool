@@ -1,3 +1,4 @@
+import {saveThumbnail} from './thumbnails.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
@@ -324,6 +325,7 @@ function baseResult(job, fixture) {
  */
 export async function processVideo(job, {
   scratchRoot,
+  thumbnailRoot,
   cobaltUrl = 'http://127.0.0.1:9100',
   ffmpeg = 'ffmpeg',
   ffprobe = 'ffprobe',
@@ -416,6 +418,8 @@ export async function processVideo(job, {
       frames.push({ path: framePath, timeSeconds });
     }
     result.extraction.framesExtracted = frames.length;
+    if(thumbnailRoot&&frames.length&&!fixturePath){try{result.thumbnail=await retainFrameThumbnail({thumbnailRoot,attempt,framePath:frames[0].path,id:job.id,ffmpeg,signal:attemptSignal});}catch{interruption(attemptSignal);result.extraction.warnings.push('A thumbnail could not be saved; a placeholder is shown.');}}
+
     let audioPath;
     if (result.extraction.hasAudio && (analyze || nativeExtract)) {
       audioPath = path.join(attempt, 'audio.wav');
@@ -514,3 +518,5 @@ export async function processVideo(job, {
     await rm(attempt, { recursive: true, force: true });
   }
 }
+
+export async function retainFrameThumbnail({thumbnailRoot,attempt,framePath,id,ffmpeg='ffmpeg',signal}){const retainedRoot=await safeWorkspacePath(thumbnailRoot,{create:true});const small=path.join(attempt,'thumbnail.jpg');await command(ffmpeg,['-nostdin','-hide_banner','-loglevel','error','-protocol_whitelist','file','-i',framePath,'-frames:v','1','-vf',"scale=320:320:force_original_aspect_ratio=decrease",'-q:v','5','-threads','1','-y',small],signal);return saveThumbnail(retainedRoot,id,await readFile(small));}

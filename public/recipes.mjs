@@ -6,7 +6,7 @@ export function researchOnly(videos){return videos.filter(video=>!isRecipeResult
 export function savedRecipes(videos,excluded=[]){return dashboardVideos(videos).filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&v.status!=='skipped').flatMap(video=>{
  if(!isRecipeResult(video))return [];
  const recipe=normalizeRecipe(video.result?.recipe);
- return [{id:video.id,title:video.result?.title||video.title,url:video.url,recipe:recipe||{ingredients:[],instructions:[],fullRecipeShown:false},missing:!recipe}];
+ return [{id:video.id,thumbnailUrl:video.thumbnailUrl||null,title:video.result?.title||video.title,url:video.url,recipe:recipe||{ingredients:[],instructions:[],fullRecipeShown:false},missing:!recipe}];
 });}
 const units={cup:['cup','cups'],tbsp:['tbsp','tbsp'],tsp:['tsp','tsp'],g:['g','g'],kg:['kg','kg'],mg:['mg','mg'],ml:['ml','ml'],l:['l','l'],oz:['oz','oz'],lb:['lb','lb'],clove:['clove','cloves'],can:['can','cans']};
 const aliases={cups:'cup',tablespoon:'tbsp',tablespoons:'tbsp',teaspoon:'tsp',teaspoons:'tsp',grams:'g',gram:'g',kilogram:'kg',kilograms:'kg',milligram:'mg',milligrams:'mg',milliliter:'ml',milliliters:'ml',litre:'l',litres:'l',liter:'l',liters:'l',ounce:'oz',ounces:'oz',pound:'lb',pounds:'lb',cloves:'clove',cans:'can'};

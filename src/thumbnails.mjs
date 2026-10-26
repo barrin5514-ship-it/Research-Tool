@@ -1,0 +1,7 @@
+import {createHash,randomUUID} from 'node:crypto';
+import {mkdir,readdir,readFile,writeFile,rename,unlink,lstat} from 'node:fs/promises';
+import {join} from 'node:path';
+export const thumbnailName=id=>createHash('sha256').update(String(id)).digest('hex')+'.jpg';
+export async function saveThumbnail(root,id,bytes){if(bytes.length>128*1024||bytes[0]!==255||bytes[1]!==216||bytes.at(-2)!==255||bytes.at(-1)!==217)throw Error('Invalid bounded JPEG thumbnail');await mkdir(root,{recursive:true});if((await lstat(root)).isSymbolicLink())throw Error('Thumbnail directory must not be a link');const name=thumbnailName(id),temp=join(root,randomUUID()+'.tmp');try{await writeFile(temp,bytes,{flag:'wx'});await rename(temp,join(root,name));}finally{await unlink(temp).catch(()=>{});}return '/api/thumbnails/'+name;}
+export async function thumbnailVideos(videos,root){let files=[];try{files=await readdir(root);}catch{}const names=new Set(files);return videos.map(v=>({...v,thumbnailUrl:v.result&&names.has(thumbnailName(v.id))?'/api/thumbnails/'+thumbnailName(v.id):null}));}
+export async function readThumbnail(root,name){if(!/^[a-f0-9]{64}\.jpg$/.test(name))throw Error('Invalid thumbnail');if((await lstat(root)).isSymbolicLink())throw Error('Invalid thumbnail directory');const file=join(root,name),info=await lstat(file);if(!info.isFile()||info.isSymbolicLink()||info.size>128*1024)throw Error('Invalid thumbnail');return readFile(file);}

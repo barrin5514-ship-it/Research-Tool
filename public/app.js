@@ -1,3 +1,5 @@
+import {nextBatch} from './batch-preview.mjs';
+import {thumbnailNode} from './thumbnail-view.mjs';
 import {savedRecipes,researchOnly} from './recipes.mjs';
 import {mountRecipes} from './recipes-view.mjs';
 import {collectNewIdeas,answerSections,evidenceLabels,dashboardVideos,isTestFixture,spendingCards,recommendationProject,collectionExcluded,collectionKey,visualReference,researchCounts,libraryView,combinationSources,hasDeepSeekResult,videoStatus,demoCounts,failedReason,projectIdeaBullets,shortSummary} from './result-view.mjs';
@@ -37,7 +39,12 @@ function render(){
   const matches=(x,name)=>name==='All'||(name==='Unassigned'?x.collections.length===0:x.collections.includes(name));
   $('collections').replaceChildren(...names.map(name=>{const button=el('button',undefined,name===filter?'selected':'');button.append(el('span',name),el('span',String(toDoVideos.filter(x=>matches(x,name)).length)));button.onclick=()=>{filter=name;render();};return button;}));
   const q=state.queue;
-  const collectionPicker=$('batch-collection'),chosen=collectionPicker.value;const batchNames=names.filter(name=>!excluded.some(item=>collectionKey(item)===collectionKey(name)));collectionPicker.replaceChildren(...batchNames.map(name=>{const option=el('option',name);option.value=name;return option;}));collectionPicker.value=batchNames.includes(chosen)?chosen:'All';
+  const collectionPicker=$('batch-collection'),chosen=[...collectionPicker.selectedOptions].map(o=>o.value);const batchNames=names.filter(name=>!excluded.some(item=>collectionKey(item)===collectionKey(name)));collectionPicker.replaceChildren(...batchNames.map(name=>{const option=el('option',name);option.value=name;option.selected=chosen.includes(name);return option;}));if(!collectionPicker.selectedOptions.length)collectionPicker.options[0].selected=true;collectionPicker.dataset.previous=JSON.stringify([...collectionPicker.selectedOptions].map(o=>o.value));
+  const preview=nextBatch(state.videos,{size:Number($('batch-size').value),collection:[...collectionPicker.selectedOptions].map(o=>o.value),excluded});
+  $('batch-preview').replaceChildren(...preview.map(video=>{const row=el('li');row.dataset.videoId=video.id;row.append(el('strong',video.result?.title||video.title),el('span',video.collections.join(' · ')||'Unassigned','small'));const source=el('a','Original post');source.href=video.url;source.target='_blank';source.rel='noopener noreferrer';row.append(source);return row;}));
+  $('batch-preview-count').textContent=preview.length+' posts in the next batch'+(q.running||q.active?' — updates as the current run finishes.':'.');
+  if(!preview.length)$('batch-preview').append(el('li','No posts are ready in these collections.'));
+
   const batch=state.batch,posts=batch?.posts||[],batchIds=new Set(posts.map(p=>p.id));const batchState=q.running?'Working':q.active?'Finishing current post':'Ready';
   const costText=batch?.unknownUsage?'cost not known yet':batch?.costUSD>0&&batch.costUSD<0.001?'less than $0.001':'about $'+(batch?.costUSD||0).toFixed(3);
 
@@ -69,7 +76,7 @@ function card(video){
   const box=el('article',undefined,'result'),top=el('div',undefined,'result-top'),heading=el('div');
   const title=video.result?.title||video.title;
   heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`+(video.result?.provenance?.provider==='deepseek'?' · DeepSeek':''),'meta'));
-  top.append(heading,el('span',videoStatus(video),'pill'));box.append(top);
+  top.append(heading,el('span',videoStatus(video),'pill'));box.append(top);if(video.result)box.append(thumbnailNode(document,video.thumbnailUrl));
   if(video.septemberOnly)box.append(el('p','September export only','pill'));
   const answers=answerSections(video);
   if(video.result?.recipe){const recipe=video.result.recipe;const recipeBox=el('div',undefined,'recipe-card');recipeBox.append(el('h4','Ingredients'));const ingredients=el('ul');recipe.ingredients.forEach(line=>ingredients.append(el('li',line)));recipeBox.append(ingredients);if(!recipe.ingredients.length)recipeBox.append(el('p','Ingredients not given.'));recipeBox.append(el('h4','Instructions'));const steps=el('ol');recipe.instructions.forEach(line=>steps.append(el('li',line)));recipeBox.append(steps);if(!recipe.instructions.length)recipeBox.append(el('p','Steps not shown.'));if(!recipe.fullRecipeShown)recipeBox.append(el('p','Full recipe not shown in the video','notice'));box.append(recipeBox);
@@ -98,7 +105,7 @@ function card(video){
     if(result.extraction?.reason)content.append(el('p',result.extraction.reason));
     for(const warning of [...(result.extraction?.warnings||[]),...(result.validationWarnings||[])])content.append(el('p',warning,'small'));
     const facts=el('div',undefined,'facts');
-    for(const [label,value] of [['Evidence status',result.verification||'NOT VERIFIED'],['Extracted samples',`${result.extraction?.framesExtracted??0} frames · ${Math.round(result.extraction?.durationSeconds??0)} seconds`],['Transcript',result.transcript||'Not available'],['Media retention','Temporary media and frame files are removed after each attempt.']]){const fact=el('div',undefined,'fact');fact.append(el('strong',label),el('span',value));facts.append(fact);}content.append(facts);
+    for(const [label,value] of [['Evidence status',result.verification||'NOT VERIFIED'],['Extracted samples',`${result.extraction?.framesExtracted??0} frames · ${Math.round(result.extraction?.durationSeconds??0)} seconds`],['Transcript',result.transcript||'Not available'],['Media retention','Temporary videos, audio and analysis frames are removed. One small preview image may be kept.']]){const fact=el('div',undefined,'fact');fact.append(el('strong',label),el('span',value));facts.append(fact);}content.append(facts);
     if(result.ocr?.length){content.append(el('h4','On-screen text (Windows OCR)'));const lines=el('ul');for(const entry of result.ocr)lines.append(el('li',entry.text||''));content.append(lines);}
     if(result.visualFindings?.length){content.append(el('h4','Visual observations'));const list=el('ul');for(const finding of result.visualFindings)list.append(el('li',typeof finding==='string'?finding:JSON.stringify(finding)));content.append(list);}
     if(result.claims?.length){content.append(el('h4','Claims to verify'));const list=el('ul');for(const claim of result.claims){const row=el('li',`${claim.claim} — ${claim.status||'NOT VERIFIED'}`);for(const source of claim.sources||[]){try{const url=new URL(source.url);if(url.protocol!=='https:')continue;const link=el('a',` · ${source.title||url.hostname}`);link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';row.append(link);}catch{}}list.append(row);}content.append(list);}
@@ -111,7 +118,9 @@ function card(video){
 $('import').onclick=async()=>{try{const files=[...$('files').files];if(!files.length)return message('Choose saved-post or saved-collection HTML/JSON files first.');if(files.length>10||files.reduce((n,f)=>n+f.size,0)>10*1024*1024)return message('Choose at most 10 files totaling 10 MiB.');const result=await action('/api/import',{files:await Promise.all(files.map(async file=>({name:file.name,content:await file.text()})))});if(result)message(result.results.map(x=>`${x.filename}: ${x.added} new, ${x.existing} existing. ${x.warnings.join(' ')}`).join('\n'));}catch(e){message(e.message);}};
 $('add-links').onclick=()=>action('/api/links',{links:$('links').value,collection:$('manual-collection').value}).then(result=>{if(result)message(`${result.added} new links added; ${result.existing} already known.`);}).catch(()=>{});
 $('research-filter').onchange=()=>{resultFilter=$('research-filter').value;render();};
-$('start').onclick=()=>action('/api/start',{size:Number($('batch-size').value),collection:$('batch-collection').value}).then(()=>message('Batch started. Stop finishes the current video before stopping.')).catch(()=>{});
+$('batch-size').onchange=()=>render();
+$('batch-collection').onchange=()=>{const picker=$('batch-collection');const values=[...picker.selectedOptions].map(o=>o.value),previous=JSON.parse(picker.dataset.previous||'[]');if(values.includes('All')&&!previous.includes('All'))for(const option of picker.options)option.selected=option.value==='All';else if(values.length>1)for(const option of picker.options)if(option.value==='All')option.selected=false;render();};
+$('start').onclick=()=>action('/api/start',{size:Number($('batch-size').value),collection:[...$('batch-collection').selectedOptions].map(o=>o.value)}).then(()=>message('Batch started. Stop finishes the current video before stopping.')).catch(()=>{});
 $('pause').onclick=()=>action('/api/stop').then(()=>message('Stopping after the current video; no further videos will start.')).catch(()=>{});
 $('refresh-balance').onclick=()=>action('/api/balance').then(()=>message('DeepSeek balance refreshed. No research request was made.')).catch(()=>{});
 $('instagram-connect').onclick=()=>action('/api/instagram/connect').then(r=>{if(r)message(r.message);}).catch(()=>{});
