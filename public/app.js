@@ -1,3 +1,4 @@
+import {INPUT_LIMITS,validateImportFile} from './input-limits.mjs';
 import {nextBatch} from './batch-preview.mjs';
 import {thumbnailNode} from './thumbnail-view.mjs';
 import {savedRecipes,researchOnly} from './recipes.mjs';
@@ -67,7 +68,7 @@ function render(){
   $('library-items').replaceChildren(...selected.slice(0,visibleLimit).map(video=>{const row=el('article',undefined,'library-row'+(batchIds.has(video.id)?' batch-picked':''));const title=video.result?.title||video.title;row.append(el('strong',title.length>130?title.slice(0,127)+'…':title),el('span',videoStatus(video),'pill'));const link=el('a','Original post');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';row.append(link);if(video.status==='failed'){row.append(el('p',failedReason(video),'small'));const retry=el('button','Try again','secondary');retry.onclick=()=>action('/api/retry',{id:video.id}).catch(()=>{});row.append(retry);}if(collectionExcluded(video,excluded))row.append(el('span','Excluded collection','pill'));if(visualReference(video))row.append(el('span','Skipped: visual reference','pill'));if(video.septemberOnly)row.append(el('span','September export only','pill'));return row;}));
   if(!selected.length)$('library-items').append(el('p','No posts left to do in this collection. Finished notes are in Research results.'));
   if(selected.length>visibleLimit){const more=el('button',`Show 25 more (${selected.length-visibleLimit} remaining)`,'secondary');more.onclick=()=>{visibleLimit+=25;render();};$('library-items').append(more);}
-  const researched=researchOnly(library.videos).filter(x=>(hasDeepSeekResult(x)||x.result||x.status==='failed')&&(resultFilter!=='just-finished'||batchIds.has(x.id))).sort((a,b)=>b.updated_at-a.updated_at);
+  const researched=researchOnly([...library.videos,...videos.filter(v=>v.result?.skipReason==='insufficient_content'&&!collectionExcluded(v,excluded))]).filter(x=>(hasDeepSeekResult(x)||x.result||x.status==='failed')&&(resultFilter!=='just-finished'||batchIds.has(x.id))).sort((a,b)=>b.updated_at-a.updated_at);
   $('results').replaceChildren(...researched.slice(0,visibleLimit).map(card));
   if(!researched.length)$('results').append(el('div',resultFilter==='just-finished'?'No results from the latest batch yet.':'No research results yet.','empty'));
   if(researched.length>visibleLimit){const more=el('button','Show more results','secondary');more.onclick=()=>{visibleLimit+=25;render();};$('results').append(more);}
@@ -93,6 +94,7 @@ function card(video){
   }else if(hasDeepSeekResult(video)){box.append(el('p',shortSummary(video),'result-summary'));}else{box.append(el('p',videoStatus(video)));if(video.status==='needs_analysis')box.append(el('p','Saved text is ready; a DeepSeek summary is still needed.','small'));}
   if(video.result?.validationWarnings?.length)box.append(el('p','Summary saved. Some answers need formatting; open Show more for the original response.','small'));
   const link=el('a','Open original Instagram video');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
+  if(video.result?.skipReason==='insufficient_content')box.append(el('p',video.result.classificationReason||video.result.summary));
   if(video.status==='failed')box.append(el('p',failedReason(video),'failure-reason'));
   if(hasDeepSeekResult(video)){const check=el('button','Check claims (coming soon)','secondary claim-check');check.disabled=true;box.append(check);}
   const result=video.result;
@@ -103,7 +105,7 @@ function card(video){
     if(result.savedAnswerDetails){content.append(el('h4','Saved answers (original format)'));for(const [key,label] of [['what','What is this?'],['why','Why is it useful?'],['next','What can I do with it?']]){const answer=result.savedAnswerDetails[key];if(!answer)continue;content.append(el('h5',label));if(Array.isArray(answer.bullets)){const list=el('ul');for(const bullet of answer.bullets)if(typeof bullet==='string')list.append(el('li',bullet));content.append(list);}if(typeof answer.explanation==='string')content.append(el('p',answer.explanation));}}
     if(result.analysisFailure)content.append(el('p',result.analysisFailure));
     if(result.extraction?.reason)content.append(el('p',result.extraction.reason));
-    for(const warning of [...(result.extraction?.warnings||[]),...(result.validationWarnings||[])])content.append(el('p',warning,'small'));
+    for(const warning of [...(result.extraction?.warnings||[]),...(result.validationWarnings||[]),...(result.inputWarnings||[])])content.append(el('p',warning,'small'));
     const facts=el('div',undefined,'facts');
     for(const [label,value] of [['Evidence status',result.verification||'NOT VERIFIED'],['Extracted samples',`${result.extraction?.framesExtracted??0} frames · ${Math.round(result.extraction?.durationSeconds??0)} seconds`],['Transcript',result.transcript||'Not available'],['Media retention','Temporary videos, audio and analysis frames are removed. One small preview image may be kept.']]){const fact=el('div',undefined,'fact');fact.append(el('strong',label),el('span',value));facts.append(fact);}content.append(facts);
     if(result.ocr?.length){content.append(el('h4','On-screen text (Windows OCR)'));const lines=el('ul');for(const entry of result.ocr)lines.append(el('li',entry.text||''));content.append(lines);}
@@ -115,7 +117,7 @@ function card(video){
   if(['failed','skipped','needs_analysis'].includes(video.status)){const retry=el('button',video.status==='failed'?'Try again':'Try analysis again','secondary');retry.onclick=()=>action('/api/retry',{id:video.id}).then(()=>message('Added to the to-do list. Start a batch when ready.')).catch(()=>{});box.append(retry);}
   return box;
 }
-$('import').onclick=async()=>{try{const files=[...$('files').files];if(!files.length)return message('Choose saved-post or saved-collection HTML/JSON files first.');if(files.length>10||files.reduce((n,f)=>n+f.size,0)>10*1024*1024)return message('Choose at most 10 files totaling 10 MiB.');const result=await action('/api/import',{files:await Promise.all(files.map(async file=>({name:file.name,content:await file.text()})))});if(result)message(result.results.map(x=>`${x.filename}: ${x.added} new, ${x.existing} existing. ${x.warnings.join(' ')}`).join('\n'));}catch(e){message(e.message);}};
+$('import').onclick=async()=>{try{const files=[...$('files').files];if(!files.length)return message('Choose saved-post or saved-collection HTML/JSON files first.');if(files.length>INPUT_LIMITS.importFilesPerRequest)return message('Choose at most 10 files.');for(const file of files)validateImportFile(file.name,file.size);const result=await action('/api/import',{files:await Promise.all(files.map(async file=>({name:file.name,content:await file.text()})))});if(result)message(result.results.map(x=>`${x.filename}: ${x.added} new, ${x.existing} existing. ${x.warnings.join(' ')}`).join('\n'));}catch(e){message(e.message);}};
 $('add-links').onclick=()=>action('/api/links',{links:$('links').value,collection:$('manual-collection').value}).then(result=>{if(result)message(`${result.added} new links added; ${result.existing} already known.`);}).catch(()=>{});
 $('research-filter').onchange=()=>{resultFilter=$('research-filter').value;render();};
 $('batch-size').onchange=()=>render();
@@ -152,7 +154,7 @@ function renderExclusions(videos,excluded){
 }
 function renderSkipped(videos,excluded){
  const skipped=videos.filter(v=>collectionExcluded(v,excluded)||visualReference(v)||v.status==='skipped').sort((a,b)=>Number(visualReference(b))-Number(visualReference(a)));$('skipped-summary').textContent='Give me more — '+skipped.length+' excluded posts';
- $('skipped-items').replaceChildren(...skipped.slice(0,skippedLimit).map(video=>{const row=el('div',undefined,'skipped-row');row.append(el('strong',video.result?.title||video.title),el('p',visualReference(video)?'Excluded: visual reference':collectionExcluded(video,excluded)?'Excluded collection':video.result?.extraction?.reason||'Excluded: this post has no supported video.','small'));const retry=el('button','Not reference — analyze it','secondary');retry.onclick=()=>action('/api/reference/override',{id:video.id}).then(result=>{if(result)message(result.message);}).catch(()=>{});if(collectionExcluded(video,excluded)||visualReference(video))row.append(retry);return row;}));
+ $('skipped-items').replaceChildren(...skipped.slice(0,skippedLimit).map(video=>{const row=el('div',undefined,'skipped-row');row.append(el('strong',video.result?.title||video.title),el('p',visualReference(video)?'Excluded: visual reference':collectionExcluded(video,excluded)?'Excluded collection':video.result?.classificationReason||video.result?.extraction?.reason||'Excluded: this post has no supported video.','small'));const retry=el('button','Not reference — analyze it','secondary');retry.onclick=()=>action('/api/reference/override',{id:video.id}).then(result=>{if(result)message(result.message);}).catch(()=>{});if(collectionExcluded(video,excluded)||visualReference(video))row.append(retry);return row;}));
  if(!skipped.length)$('skipped-items').append(el('p','No skipped posts.','small'));if(skipped.length>skippedLimit){const more=el('button','Show 10 more skipped posts','secondary');more.onclick=()=>{skippedLimit+=10;render();};$('skipped-items').append(more);}
 }
 let renderedProjects='';

@@ -1,10 +1,11 @@
+import {INPUT_LIMITS,validateImportFile} from '../public/input-limits.mjs';
 import {repairExportText} from './export-text.mjs';
 /**
  * Read-only Instagram export parser. Nothing in an export is evaluated or fetched.
  * HTML parsing patterns are adapted from Instagram Saved Library (MIT).
  * See THIRD_PARTY_NOTICES.md for attribution and license.
  */
-export const MAX_EXPORT_BYTES = 10 * 1024 * 1024;
+export const MAX_EXPORT_BYTES = INPUT_LIMITS.importFileBytes;
 
 const ENTITIES = Object.freeze({
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
@@ -44,17 +45,19 @@ export function normalizeInstagramUrl(raw) {
   const input = decodeEntities(raw.trim());
   if (/[\u0000-\u0020\u007f\\]/u.test(input)) throw new Error('Invalid characters in Instagram URL.');
   let parsed;
-  try { parsed = new URL(input); } catch { throw new Error('Invalid Instagram URL.'); }
+  try { parsed = new URL(input); } catch { throw new Error("That isn't an Instagram post link."); }
   if (!['https:', 'http:'].includes(parsed.protocol)
     || !['instagram.com', 'www.instagram.com'].includes(parsed.hostname.toLowerCase())
     || parsed.username || parsed.password || parsed.port) {
-    throw new Error('Only public Instagram post URLs without credentials or custom ports are accepted.');
+    throw new Error("That isn't an Instagram post link.");
   }
-  const path = parsed.pathname.match(/^\/(?:p|reel|tv)\/([A-Za-z0-9_-]{3,64})\/?$/);
-  if (!path) throw new Error('Expected an Instagram /p/, /reel/, or /tv/ post URL.');
+  const path = parsed.pathname.match(/^\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]{3,64})\/?$/);
+  if (!path) throw new Error("That isn't an Instagram post link.");
   const shortcode = path[1];
   return { url: `https://www.instagram.com/p/${shortcode}/`, shortcode };
 }
+
+export function normalizePastedPostUrl(raw){try{const result=normalizeInstagramUrl(raw);if(!/^\/(?:p|reel|reels)\//.test(new URL(raw).pathname))throw Error();return result;}catch{throw Error("That isn't an Instagram post link.");}}
 
 function parseHtml(text, add, warn) {
   const raw = text.replace(/<!--[\s\S]*?-->/g, '')
@@ -68,7 +71,7 @@ function parseHtml(text, add, warn) {
   const postPattern = /\bURL\s*(?:<\/td>\s*<td\b[^>]*>\s*)?(?:<div\b[^>]*>\s*)?<a\b[^>]*\shref\s*=\s*(["'])(.*?)\1/gi;
   const posts = [...raw.matchAll(postPattern)];
   if (!posts.length && !collections.length && !/\bSaved (?:posts|collections)\b/i.test(htmlText(raw))) {
-    throw new Error('Unsupported HTML export: expected saved-post URL fields or named collection records.');
+    throw new Error('Choose an Instagram saved-post JSON or HTML file.');
   }
   let collectionIndex = -1;
   for (let i = 0; i < posts.length; i += 1) {
@@ -111,7 +114,7 @@ function parseJson(text, filename, add, warn,registerCollection) {
           // and profile/external/legacy-TV links are not modern saved posts.
           try{
             const parsed=new URL(decodeEntities(url.trim()));
-            if(!/^\/(?:p|reel)\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname))throw new Error('Not a post');
+            if(!/^\/(?:p|reel|reels)\/[A-Za-z0-9_-]+\/?$/.test(parsed.pathname))throw new Error('Not a post');
             normalizeInstagramUrl(url);
           }catch{warn('Non-post URL fields were ignored; only Instagram /p/ and /reel/ links are imported.');continue;}
           add(url,caption,memberships);found++;
@@ -203,13 +206,13 @@ function parseJson(text, filename, add, warn,registerCollection) {
     if (/^saved_posts(?:_\d+)?\.json$/.test(base)) { posts(data); recognized = true; }
     if (/^saved_collections(?:_\d+)?\.json$/.test(base)) { collectionRecords(data); recognized = true; }
   }
-  if (!recognized) throw new Error('Unsupported JSON export: no recognized saved-post or collection structure.');
+  if (!recognized) throw new Error('Choose an Instagram saved-post JSON or HTML file.');
 }
 
 export function parseExport(text, { filename = '' } = {}) {
   if (typeof text !== 'string') throw new TypeError('Export content must be text.');
   if (typeof filename !== 'string') throw new TypeError('Export filename must be text.');
-  if (Buffer.byteLength(text, 'utf8') > MAX_EXPORT_BYTES) throw new Error('Export exceeds the 10 MiB input limit.');
+  validateImportFile(filename||'saved_posts.json',Buffer.byteLength(text,'utf8'));
   const input = text.replace(/^\uFEFF/, '').trim();
   if (!input) throw new Error('Export is empty.');
   const byShortcode = new Map();

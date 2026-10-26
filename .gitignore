@@ -6,3 +6,11 @@
 !.env.example
 node_modules/
 .processor-test-*/
+
+# Keep local Instagram exports out of Git, wherever they are placed.
+saved_posts*.json
+saved_collections*.json
+saved_posts*.html
+saved_collections*.html
+your_instagram_activity/
+*.zip

@@ -3,10 +3,10 @@ import {dashboardVideos,collectionExcluded,visualReference} from './result-view.
 export const GROCERY_GROUPS=['Produce','Meat','Dairy','Pantry','Other'];
 export function isRecipeResult(video){const result=video?.result;return Boolean(result&&(result.recipe&&typeof result.recipe==='object'||video.collections?.some(name=>name.trim().toLowerCase()==='food')||['food','recipe'].includes(result.contentType)));}
 export function researchOnly(videos){return videos.filter(video=>!isRecipeResult(video));}
-export function savedRecipes(videos,excluded=[]){return dashboardVideos(videos).filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&v.status!=='skipped').flatMap(video=>{
+export function savedRecipes(videos,excluded=[]){return dashboardVideos(videos).filter(v=>!collectionExcluded(v,excluded)&&!visualReference(v)&&(v.status!=='skipped'||v.result?.skipReason==='insufficient_content')).flatMap(video=>{
  if(!isRecipeResult(video))return [];
  const recipe=normalizeRecipe(video.result?.recipe);
- return [{id:video.id,thumbnailUrl:video.thumbnailUrl||null,title:video.result?.title||video.title,url:video.url,recipe:recipe||{ingredients:[],instructions:[],fullRecipeShown:false},missing:!recipe}];
+ return [{id:video.id,skipReason:video.result?.skipReason,classificationReason:video.result?.classificationReason,thumbnailUrl:video.thumbnailUrl||null,title:video.result?.title||video.title,url:video.url,recipe:recipe||{ingredients:[],instructions:[],fullRecipeShown:false},missing:!recipe}];
 });}
 const units={cup:['cup','cups'],tbsp:['tbsp','tbsp'],tsp:['tsp','tsp'],g:['g','g'],kg:['kg','kg'],mg:['mg','mg'],ml:['ml','ml'],l:['l','l'],oz:['oz','oz'],lb:['lb','lb'],clove:['clove','cloves'],can:['can','cans']};
 const aliases={cups:'cup',tablespoon:'tbsp',tablespoons:'tbsp',teaspoon:'tsp',teaspoons:'tsp',grams:'g',gram:'g',kilogram:'kg',kilograms:'kg',milligram:'mg',milligrams:'mg',milliliter:'ml',milliliters:'ml',litre:'l',litres:'l',liter:'l',liters:'l',ounce:'oz',ounces:'oz',pound:'lb',pounds:'lb',cloves:'clove',cans:'can'};

@@ -1,3 +1,4 @@
+import {INPUT_LIMITS} from '../public/input-limits.mjs';
 import {thumbnailVideos,readThumbnail} from './thumbnails.mjs';
 import {ProjectCombinations} from './project-combinations.mjs';
 import {researchCounts,visualReference} from '../public/result-view.mjs';
@@ -11,7 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { LibraryStore } from './store.mjs';
 import { ResearchQueue } from './queue.mjs';
-import { parseExport, normalizeInstagramUrl } from './importer.mjs';
+import { parseExport, normalizePastedPostUrl } from './importer.mjs';
 import { processVideo,cleanupStaleAttempts } from './processor.mjs';
 import { createLocalResearch } from './research.mjs';
 import { createAnalyzer } from './analyzer-integration.mjs';
@@ -23,8 +24,9 @@ import {createBrowserFallback} from './browser-fallback.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
-const MAX_BODY = 12 * 1024 * 1024;
+const MAX_BODY = INPUT_LIMITS.importRequestBytes;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/input-limits.mjs',['input-limits.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/thumbnail-view.mjs',['thumbnail-view.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/batch-preview.mjs',['batch-preview.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/recipes.mjs',['recipes.mjs','text/javascript; charset=utf-8']);
@@ -32,7 +34,7 @@ STATIC.set('/recipes-view.mjs',['recipes-view.mjs','text/javascript; charset=utf
 STATIC.set('/answer-format.mjs',['answer-format.mjs','text/javascript; charset=utf-8']);
 async function readJson(req) {
   const chunks = []; let length = 0;
-  for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('Import is too large; choose fewer files (12 MiB limit)'); error.status = 413; throw error; } chunks.push(chunk); }
+  for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('These files are too large to upload together. Choose fewer files under 25 MB each.'); error.status = 413; throw error; } chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Invalid JSON request'); }
 }
 export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations}) {
@@ -63,7 +65,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         queue.pause();return send(200,await browserSession[path.endsWith('connect')?'connect':'confirm']());
       }
       if (path === '/api/import') {
-        if (!Array.isArray(body.files) || body.files.length < 1 || body.files.length > 10) throw new Error('Choose 1 to 10 extracted saved-post or collection files');
+        if (!Array.isArray(body.files) || body.files.length < 1 || body.files.length > INPUT_LIMITS.importFilesPerRequest) throw new Error('Choose 1 to 10 extracted saved-post or collection files');
         const parsed = body.files.map(file => {
           if (typeof file.name !== 'string' || typeof file.content !== 'string') throw new Error('Invalid import file');
           return {name:file.name.slice(0,200),content:file.content,...parseExport(file.content,{filename:file.name})};
@@ -76,7 +78,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const links = body.links.split(/\s+/).filter(Boolean);
         if (links.length < 1 || links.length > 3) throw new Error('Paste one to three links for this pilot');
         const collection = ['Pennywise','Personafy','Tech'].includes(body.collection) ? body.collection : undefined;
-        const items = links.map(raw => ({...normalizeInstagramUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
+        const items = links.map(raw => ({...normalizePastedPostUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
         return send(200,store.import(items));
       }
       if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id));}

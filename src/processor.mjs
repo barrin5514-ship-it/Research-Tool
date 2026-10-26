@@ -478,14 +478,14 @@ export async function processVideo(job, {
     for (const field of ['visualFindings', 'claims', 'recommendations']) {
       if (Array.isArray(analyzed[field])) result[field] = analyzed[field].slice(0, 100);
     }
-    for(const field of ['validationWarnings','savedAnswerDetails'])if(analyzed[field])result[field]=analyzed[field];
+    for(const field of ['validationWarnings','savedAnswerDetails','inputWarnings'])if(analyzed[field])result[field]=analyzed[field];
     if(normalizeRecipe(analyzed.recipe))result.recipe=normalizeRecipe(analyzed.recipe);
     if(normalizeAnswers(analyzed.answers))result.answers=normalizeAnswers(analyzed.answers);
     result.verification = analyzed.verification === 'PARTIALLY VERIFIED' ? 'PARTIALLY VERIFIED' : 'NOT VERIFIED';
     if (analyzed.provenance && typeof analyzed.provenance === 'object') {
       result.provenance = JSON.parse(JSON.stringify(analyzed.provenance).split(attempt).join('[temporary evidence]'));
     }
-    if(['visual_reference','excluded_collection'].includes(analyzed.skipReason)){result.skipReason=analyzed.skipReason;result.classificationReason=analyzed.classificationReason||null;result.recommendations=[];result.verification='NOT VERIFIED';result.extraction.visionStatus='not_analyzed';if(analyzed.usage)result.usage=analyzed.usage;return {status:'skipped',result};}
+    if(['visual_reference','excluded_collection','insufficient_content'].includes(analyzed.skipReason)){result.skipReason=analyzed.skipReason;result.classificationReason=analyzed.classificationReason||null;result.recommendations=[];result.verification='NOT VERIFIED';result.extraction.visionStatus='not_analyzed';if(analyzed.usage)result.usage=analyzed.usage;return {status:'skipped',result};}
     const researchComplete = Boolean(result.transcript?.trim()) && analyzed.researchStatus === 'complete' && analyzed.sourceVerification === 'completed';
     result.researchStatus = result.transcript?.trim() ? 'requires_verification' : 'visual_only';
     result.extraction.analysisStatus = researchComplete ? 'completed' : 'required';

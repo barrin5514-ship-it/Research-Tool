@@ -1,0 +1,13 @@
+# Input guardrails
+
+Demo config: public/input-limits.mjs exports INPUT_LIMITS. The minimum is 40 meaningful characters, with at most 12,000 transcript characters, 12,000 caption characters, 30 OCR snippets and 400 characters per snippet. Meaningful characters are Unicode letters/numbers after capping; whitespace, punctuation, emojis, URLs and the placeholder captions Instagram video/post do not count. The combined capped text is measured before provider approval/key checks or any fetch. A short input returns Skipped: not enough content to analyze, without a request or usage entry. Processing and saved-text rechecks persist the skip reason, which appears on the dashboard card/list. Food skips stay in Recipes.
+
+Truncation logs contain only fixed labels, such as Transcript shortened to fit the limit. Warnings are also retained with results. Original saved extraction text is not overwritten by the outbound caps. No source text or credentials are printed.
+
+Pasted links accept only HTTP(S) instagram.com or www.instagram.com /p/, /reel/ and /reels/ post links; credentials, custom ports, profiles, legacy /tv/ and other destinations fail with That isn't an Instagram post link. The existing importer can still read legacy saved-post formats without changing old data.
+
+Import files must be JSON or HTML and match recognized saved-post/collection structures. Browser checks size/type before reading; server measures actual UTF-8 bytes before parsing. Each file is limited to 25 MiB (shown as 25 MB in the UI). The separate total HTTP-body ceiling is 160 MiB to bound a multi-file request including JSON encoding overhead; an overlarge request says to choose fewer files. Up to ten files can be submitted. Arbitrary JSON/HTML and unsupported extensions are rejected with plain messages.
+
+142 automated Windows tests passed with zero failures/skips, including empty/meaningless input with no request or usage, the 39/40-character boundary, all text caps and warning labels, strict pasted-link rejection, oversized files and unsupported structures. Existing stand-in provider tests now supply enough synthetic text to exercise their intended response paths. All requests in tests use stand-ins; no paid API calls or new real videos were run.
+
+Privacy check before any push: .env, .research-data, saved_posts/saved_collections exports, export directories and ZIPs are ignored and absent from tracked files/history. Only .env.example is tracked as the configuration template. No GitHub remote is configured in this checkout; push requires the owner's repository URL. Do not create or guess a destination repository.

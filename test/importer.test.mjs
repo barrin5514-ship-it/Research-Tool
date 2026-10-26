@@ -98,13 +98,13 @@ test('empty recognized exports are explicit and malformed/unsupported inputs fai
 });
 
 test('bad imported URLs fail instead of becoming downloadable jobs', () => {
-  assert.throws(() => parseExport(JSON.stringify({ saved_saved_media: [saved('https://127.0.0.1:9100/')] })), /Only public Instagram/);
-  assert.throws(() => parseExport(htmlPost('https://example.com/p/Fake123/'), { filename: 'saved_posts.html' }), /Only public Instagram/);
+  assert.throws(() => parseExport(JSON.stringify({ saved_saved_media: [saved('https://127.0.0.1:9100/')] })), /Instagram post link/);
+  assert.throws(() => parseExport(htmlPost('https://example.com/p/Fake123/'), { filename: 'saved_posts.html' }), /Instagram post link/);
 });
 
 test('input limit counts UTF-8 bytes and supports BOM', () => {
-  assert.throws(() => parseExport('a'.repeat(MAX_EXPORT_BYTES + 1)), /10 MiB/);
-  assert.throws(() => parseExport('💡'.repeat(Math.floor(MAX_EXPORT_BYTES / 4) + 1)), /10 MiB/);
+  assert.throws(() => parseExport('a'.repeat(MAX_EXPORT_BYTES + 1)), /25 MB/);
+  assert.throws(() => parseExport('💡'.repeat(Math.floor(MAX_EXPORT_BYTES / 4) + 1)), /25 MB/);
   assert.equal(parseExport('\uFEFF{"saved_saved_media":[]}').items.length, 0);
 });
 
