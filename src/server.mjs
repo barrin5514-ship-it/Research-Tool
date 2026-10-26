@@ -1,3 +1,4 @@
+import {SavedAnalysis} from './saved-analysis.mjs';
 import {INPUT_LIMITS} from '../public/input-limits.mjs';
 import {thumbnailVideos,readThumbnail} from './thumbnails.mjs';
 import {ProjectCombinations} from './project-combinations.mjs';
@@ -42,6 +43,7 @@ async function readJson(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Invalid JSON request'); }
 }
 export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations}) {
+  const savedAnalysis=new SavedAnalysis({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
   const csrf = randomBytes(32).toString('hex');
   const server = createServer(async (req,res) => {
     const origin = `http://127.0.0.1:${server.address()?.port || port}`;
@@ -55,7 +57,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -85,6 +87,10 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const items = links.map(raw => ({...normalizePastedPostUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
         const addedIds=items.filter(item=>!store.get(item.shortcode)).map(item=>item.shortcode);return send(200,{...store.import(items),ids:items.map(item=>item.shortcode),addedIds});
       }
+      if(path==='/api/posts/move'){if(savedAnalysis.running)throw Error('Wait for current research to finish.');store.moveToProject(body.id,body.projectId);return send(200,{message:'Project choice saved. No paid call.'});}
+      if(path==='/api/posts/analyze/preview')return send(200,savedAnalysis.prepare(body.id));
+      if(path==='/api/posts/analyze/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');return send(200,await savedAnalysis.confirm(body));}
+      if(savedAnalysis.running)throw Error('Wait for current research to finish.');
       if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id));}
       if(path==='/api/projects/combine/confirm'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.confirm(body));}
       if(path==='/api/collections/exclusion')return send(200,{excluded:store.setCollectionExcluded(body.name,body.excluded)});

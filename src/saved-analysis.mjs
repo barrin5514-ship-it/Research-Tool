@@ -1,0 +1,9 @@
+import {randomUUID,createHash} from 'node:crypto';
+import {createDeepSeekResearch,estimateResearchRequest} from './deepseek.mjs';
+const fingerprint=v=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+export class SavedAnalysis{
+ constructor({store,apiKey,isBusy=()=>false,onUsage=async()=>{},fetcher=fetch}){Object.assign(this,{store,apiKey,isBusy,onUsage,fetcher});this.running=false;this.previews=new Map();}
+ evidence(id){const job=this.store.get(id);if(!job?.result?.summary||this.store.isExcluded(job)||job.status==='running')throw Error('This saved result cannot be re-analyzed now.');return {job,transcript:job.result.transcript||'',ocr:job.result.ocr||[],projects:this.store.activeProjects()};}
+ prepare(id){if(this.running||this.isBusy())throw Error('Wait for current research to finish.');const e=this.evidence(id),estimatedUSD=estimateResearchRequest({...e,projectContext:Object.fromEntries(e.projects.map(p=>[p.name,p.description]))}),token=randomUUID();this.previews.set(token,{id,hash:fingerprint(e),at:Date.now()});return {token,estimatedUSD};}
+ async confirm({token,confirmed}){const p=this.previews.get(token);if(confirmed!==true||!p||Date.now()-p.at>600000)throw Error('Review the cost and confirm first.');if(this.running||this.isBusy())throw Error('Wait for current research to finish.');const e=this.evidence(p.id);if(fingerprint(e)!==p.hash)throw Error('Saved evidence or projects changed. Review again.');this.previews.delete(token);this.running=true;try{let calls=0;const analyze=createDeepSeekResearch({apiKey:this.apiKey,approved:true,getProjects:()=>e.projects,onUsage:this.onUsage,fetcher:(...args)=>{if(calls++)throw Error('No automatic paid retry.');return this.fetcher(...args);}});const result=await analyze(e);this.store.finish(p.id,{status:result.skipReason?'skipped':'completed',result:{...e.job.result,...result,ocr:e.ocr}});return {message:'Analysis saved.'};}finally{this.running=false;}}
+}

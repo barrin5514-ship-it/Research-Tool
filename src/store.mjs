@@ -31,6 +31,7 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS project_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS project_combinations(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,sources_json TEXT NOT NULL,plans_json TEXT NOT NULL,usage_json TEXT,created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS project_rechecks(video_id TEXT NOT NULL REFERENCES videos(id),project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,result_json TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(video_id,project_id,fingerprint));
+      CREATE TABLE IF NOT EXISTS manual_projects(video_id TEXT PRIMARY KEY REFERENCES videos(id),project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,application TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
     `);
@@ -56,6 +57,8 @@ export class LibraryStore {
   deleteProject(id,confirmed){if(confirmed!==true)throw Error('Confirm deletion first.');if(!this.db.prepare('DELETE FROM projects WHERE id=?').run(id).changes)throw Error('Project not found.');}
   hasProjectRecheck(videoId,projectId,fingerprint){return Boolean(this.db.prepare('SELECT 1 FROM project_rechecks WHERE video_id=? AND project_id=? AND fingerprint=?').get(videoId,projectId,fingerprint));}
   saveProjectRecheck(videoId,project,fingerprint,analysis){return this.transaction(()=>{const video=this.get(videoId);if(!video?.result)throw Error('Saved result is unavailable.');const recs=(video.result.recommendations||[]).filter(r=>r.projectId!==project.id&&!( !r.projectId&&[project.name,...project.aliases].includes(r.project)));const replacements=analysis.recommendations.filter(r=>r.project===project.name).map(r=>({...r,projectId:project.id}));video.result.recommendations=[...recs,...replacements];this.db.prepare("UPDATE videos SET result_json=?,review_status='New' WHERE id=?").run(JSON.stringify(video.result),videoId);this.db.prepare('INSERT INTO project_rechecks VALUES(?,?,?,?,?)').run(videoId,project.id,fingerprint,JSON.stringify(analysis),Date.now());});}
+  moveToProject(id,projectId){const video=this.get(id),project=this.projects().find(p=>p.id===projectId);if(!video?.result?.summary||!project)throw Error('Choose a saved result and project.');if(video.status==='running')throw Error('Wait for this video to finish.');const application=video.result.recommendations?.find(r=>r.project==='New ideas')?.application||video.result.summary;this.db.prepare('INSERT OR REPLACE INTO manual_projects VALUES(?,?,?)').run(id,projectId,application);}
+  applyManual(id,result){const choice=this.db.prepare('SELECT * FROM manual_projects WHERE video_id=?').get(id);const project=choice&&this.projects().find(p=>p.id===choice.project_id);if(!project||!result)return result;return {...result,recommendations:[...(result.recommendations||[]).filter(r=>r.project!=='New ideas'&&r.projectId!==project.id&&r.project!==project.name),{projectId:project.id,project:project.name,application:choice.application,manual:true}]};}
   setExportPresence(september,october){return this.transaction(()=>{for(const v of this.list())this.db.prepare('INSERT OR REPLACE INTO export_presence VALUES(?,?,?)').run(v.id,Number(september.has(v.id)),Number(october.has(v.id)));});}
   transaction(fn) {
     this.db.exec('BEGIN IMMEDIATE');
@@ -84,13 +87,13 @@ export class LibraryStore {
     const grouped = new Map();
     for (const item of memberships) { if (!grouped.has(item.video_id)) grouped.set(item.video_id,[]); grouped.get(item.video_id).push(item.name); }
     return this.db.prepare('SELECT * FROM videos ORDER BY created_at DESC,id').all().map(row => ({
-      ...row, researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)), septemberOnly: Boolean(this.db.prepare('SELECT 1 FROM export_presence WHERE video_id=? AND september=1 AND october=0').get(row.id)), result: row.result_json ? JSON.parse(row.result_json) : null, result_json: undefined,
+      ...row, researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)), septemberOnly: Boolean(this.db.prepare('SELECT 1 FROM export_presence WHERE video_id=? AND september=1 AND october=0').get(row.id)), result: row.result_json ? this.applyManual(row.id,JSON.parse(row.result_json)) : null, result_json: undefined,
       collections: grouped.get(row.id) || []
     }));
   }
   get(id) {
     const row=this.db.prepare('SELECT * FROM videos WHERE id=?').get(id);
-    return row && {...row,researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)),result:row.result_json?JSON.parse(row.result_json):null,result_json:undefined,
+    return row && {...row,researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)),result:row.result_json?this.applyManual(row.id,JSON.parse(row.result_json)):null,result_json:undefined,
       collections:this.db.prepare('SELECT name FROM memberships WHERE video_id=? ORDER BY name').all(id).map(x=>x.name)};
   }
   claim(now = Date.now(), allowedIds = undefined) {
