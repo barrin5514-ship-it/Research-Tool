@@ -1,3 +1,4 @@
+import {mountWishlist} from './wishlist-view.mjs';
 import {postDestination,postDetail,runNowState} from './post-view.mjs';
 import {submitLinks,previewTitle} from './add-links.mjs';
 import {displayRoutes,projectVideoIdeas,projectResultAnchor} from './result-routing.mjs';
@@ -22,6 +23,10 @@ async function action(path,body={}){
   try{const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-research-token':state.csrf},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error);await refresh();return result;}
   catch(e){message(e.message);throw e;}finally{busy=false;}
 }
+const renderWishlist=mountWishlist({document,request:action});
+let syncFingerprint='';
+$('sync-save').onclick=()=>action('/api/saved-sync/settings',{enabled:$('sync-enabled').checked,frequency:Number($('sync-frequency').value)}).then(()=>message('Auto-sync settings saved.')).catch(()=>{});
+function renderSavedSync(value){if(!value)return;const fingerprint=JSON.stringify([value.enabled,value.frequency]);if(fingerprint!==syncFingerprint){syncFingerprint=fingerprint;$('sync-enabled').checked=value.enabled;$('sync-frequency').value=String(value.frequency);}$('sync-status').textContent=(value.running?'Checking saved posts. ':value.message+' ')+(value.lastSynced?'Last synced: '+new Date(value.lastSynced).toLocaleString()+' · '+value.newPosts+' new posts.':'Last synced: Never.');$('sync-history').replaceChildren(...(value.logs||[]).map(log=>el('p',new Date(log.at).toLocaleString()+' — '+log.message)));}
 function renderPostDetail(){const video=state.videos.find(v=>v.id===selectedPostId),panel=$('library-post-detail');panel.hidden=!video;if(!video)return;const detail=postDetail(video);$('post-detail-heading').textContent=detail.title;$('post-detail-facts').replaceChildren(...[['Collection',detail.collection],['Status',detail.status]].flatMap(([label,value])=>[el('dt',label),el('dd',value)]));$('post-detail-original').href=detail.url;const run=runNowState(video,state);$('post-run-controls').hidden=!['pending','retry_wait','running'].includes(video.status);$('run-post-now').disabled=run.disabled||busy;$('post-run-note').textContent=run.note;$('single-run-confirm').hidden=!singleRunPreview||singleRunPreview.id!==video.id;$('confirm-post-run').disabled=run.disabled||busy;if(singleRunPreview?.id===video.id){$('single-run-estimate').textContent='Analyze this post only? Estimated DeepSeek cost: about $'+singleRunPreview.estimatedUSD.toFixed(4)+'.';$('single-run-cost-note').textContent=singleRunPreview.note;}}
 function postTitleLink(video,title){const link=el('a',title||postDetail(video).title,'post-title-link');const destination=postDestination(video,state.projects||[],state.excludedCollections||[]);link.href=destination.href;link.onclick=event=>{if(destination.type==='detail'){event.preventDefault();if(selectedPostId!==video.id){singleRunPreview=null;$('post-run-status').textContent='';}selectedPostId=video.id;renderPostDetail();$('library-post-detail').focus({preventScroll:true});$('library-post-detail').scrollIntoView({block:'start'});}else{if(!document.getElementById(destination.href.slice(1))){resultFilter='all';$('research-filter').value='all';visibleLimit=state.videos.length;render();}if(!document.getElementById(destination.href.slice(1))){event.preventDefault();selectedPostId=video.id;renderPostDetail();$('library-post-detail').scrollIntoView({block:'start'});}}};return link;}
 $('close-post-detail').onclick=()=>{selectedPostId=null;singleRunPreview=null;renderPostDetail();};
@@ -30,6 +35,7 @@ $('cancel-post-run').onclick=()=>{singleRunPreview=null;renderPostDetail();};
 $('confirm-post-run').onclick=()=>{if(!singleRunPreview)return;action('/api/posts/run/confirm',{token:singleRunPreview.token,confirmed:true}).then(()=>{singleRunPreview=null;$('post-run-status').textContent='Run requested for this post only. Its status updates here.';renderPostDetail();}).catch(error=>{$('post-run-status').textContent=error.message;});};
 async function refresh(){const response=await fetch('/api/state');if(!response.ok)throw Error('Dashboard connection failed');state=await response.json();render();if($('message').textContent===unavailableMessage)message('');}
 function render(){
+  renderSavedSync(state.savedSync);renderWishlist(state.wishlist);
   renderPostDetail();
   openDetails=new Set([...document.querySelectorAll('.result-details[open]')].map(node=>node.dataset.videoId));
   openAnswers=new Set([...document.querySelectorAll('[data-answer-details]:not([hidden])')].map(node=>node.dataset.videoId));

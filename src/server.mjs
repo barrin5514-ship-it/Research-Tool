@@ -1,3 +1,5 @@
+import {SavedSync} from './saved-sync.mjs';
+import {Wishlist} from './wishlist.mjs';
 import {SavedAnalysis} from './saved-analysis.mjs';
 import {INPUT_LIMITS} from '../public/input-limits.mjs';
 import {thumbnailVideos,readThumbnail} from './thumbnails.mjs';
@@ -24,7 +26,7 @@ import {createBrowserFallback} from './browser-fallback.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
-const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
+const STATIC = new Map([['/wishlist-view.mjs',['wishlist-view.mjs','text/javascript; charset=utf-8']],['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = INPUT_LIMITS.importRequestBytes;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/post-view.mjs',['post-view.mjs','text/javascript; charset=utf-8']);
@@ -44,6 +46,11 @@ async function readJson(req) {
 }
 export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations}) {
   const savedAnalysis=new SavedAnalysis({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
+  const researchBusy=()=>queue.running||queue.active.size>0||batches?.starting||savedAnalysis.running||rechecks?.status().running||combinations?.status().running;
+  const sync=new SavedSync({store,browser:browserSession,isBusy:researchBusy});
+  const wishlist=new Wishlist({store,isBusy:()=>researchBusy()||sync.running});
+  let maintenance=Promise.resolve();
+  const timer=setInterval(()=>{if(wishlist.running||sync.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
   const csrf = randomBytes(32).toString('hex');
   const server = createServer(async (req,res) => {
     const origin = `http://127.0.0.1:${server.address()?.port || port}`;
@@ -57,7 +64,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       const path = new URL(req.url,origin).pathname;
       if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -87,6 +94,9 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const items = links.map(raw => ({...normalizePastedPostUrl(raw),title:'Instagram video',collections:collection?[collection]:[]}));
         const addedIds=items.filter(item=>!store.get(item.shortcode)).map(item=>item.shortcode);return send(200,{...store.import(items),ids:items.map(item=>item.shortcode),addedIds});
       }
+      if(path==='/api/saved-sync/settings')return send(200,sync.configure(body));
+      if(path==='/api/wishlist/confirm'){if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,wishlist.confirm(body));}
+      if(sync.running||wishlist.running)throw Error('Wait for the saved-post or price check to finish.');
       if(path==='/api/posts/move'){if(savedAnalysis.running)throw Error('Wait for current research to finish.');store.moveToProject(body.id,body.projectId);return send(200,{message:'Project choice saved. No paid call.'});}
       if(path==='/api/posts/analyze/preview')return send(200,savedAnalysis.prepare(body.id));
       if(path==='/api/posts/analyze/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');return send(200,await savedAnalysis.confirm(body));}
@@ -110,6 +120,8 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       return send(404,{error:'Not found'});
     } catch(e) { return send(e.status || 400,{error:e.message || 'Request failed'}); }
   });
+  server.maintenanceClose=async()=>{clearInterval(timer);await maintenance;};
+  server.on('close',()=>clearInterval(timer));
   return server;
 }
 
@@ -151,7 +163,7 @@ export async function start() {
     await new Promise((done,fail)=>{server.once('error',fail);server.listen(port,'127.0.0.1',done);});
     console.log(`Research Library: http://127.0.0.1:${port}\nBatch mode: up to 25 videos per batch, concurrency ${concurrency}. Research provider: ${researchProvider}; starts only from dashboard; spending tracked without a cap.\nStop with Ctrl+C. Media extraction is not complete research.`);
     let closing=false;
-    close=async()=>{if(closing)return;closing=true;server.close();server.closeIdleConnections();await queue.stop();await rechecks.close();await combinations.close();batches.end();await batches.pendingWrite;store.close();await release();};
+    close=async()=>{if(closing)return;closing=true;server.close();await server.maintenanceClose();server.closeIdleConnections();await queue.stop();await rechecks.close();await combinations.close();batches.end();await batches.pendingWrite;store.close();await release();};
     process.once('SIGINT',()=>close().then(()=>process.exit(0))); process.once('SIGTERM',()=>close().then(()=>process.exit(0)));
     return {server,store,queue,close};
   } catch(e) { if(queue)await queue.stop();if(store)store.close();await release();throw e; }

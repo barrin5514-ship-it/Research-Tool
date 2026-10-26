@@ -32,12 +32,17 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS project_combinations(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,sources_json TEXT NOT NULL,plans_json TEXT NOT NULL,usage_json TEXT,created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS project_rechecks(video_id TEXT NOT NULL REFERENCES videos(id),project_id TEXT NOT NULL,fingerprint TEXT NOT NULL,result_json TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(video_id,project_id,fingerprint));
       CREATE TABLE IF NOT EXISTS manual_projects(video_id TEXT PRIMARY KEY REFERENCES videos(id),project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,application TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS scheduled_checks(id INTEGER PRIMARY KEY,kind TEXT NOT NULL,result_json TEXT NOT NULL,at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
     `);
     this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='exclusions_seeded'").get()){this.db.prepare("INSERT OR IGNORE INTO collection_exclusions VALUES('reference','reference')").run();this.db.prepare("INSERT INTO project_settings VALUES('exclusions_seeded','1')").run();}});
     this.migrateDemoDescriptions();
   }
+  setting(key,fallback){const row=this.db.prepare('SELECT value FROM project_settings WHERE key=?').get(key);return row?JSON.parse(row.value):fallback;}
+  setSetting(key,value){this.db.prepare('INSERT OR REPLACE INTO project_settings VALUES(?,?)').run(key,JSON.stringify(value));}
+  logCheck(kind,result,at=Date.now()){this.db.prepare('INSERT INTO scheduled_checks(kind,result_json,at) VALUES(?,?,?)').run(kind,JSON.stringify(result),at);}
+  checkLogs(kind,limit=10){return this.db.prepare('SELECT result_json,at FROM scheduled_checks WHERE kind=? ORDER BY id DESC LIMIT ?').all(kind,limit).map(r=>({...JSON.parse(r.result_json),at:r.at}));}
   combinations(){return this.db.prepare('SELECT * FROM project_combinations ORDER BY created_at DESC,rowid DESC').all().map(r=>({id:r.id,projectId:r.project_id,fingerprint:r.fingerprint,sources:JSON.parse(r.sources_json),plans:JSON.parse(r.plans_json),usage:r.usage_json?JSON.parse(r.usage_json):null,createdAt:r.created_at,verification:'NOT VERIFIED'}));}
   saveCombination({projectId,fingerprint,sources,plans,usage}){this.db.prepare('INSERT INTO project_combinations VALUES(?,?,?,?,?,?,?)').run(randomUUID(),projectId,fingerprint,JSON.stringify(sources),JSON.stringify(plans),usage?JSON.stringify(usage):null,Date.now());}
   migrateDemoDescriptions(){this.transaction(()=>{if(this.db.prepare("SELECT 1 FROM project_settings WHERE key='demo_descriptions'").get())return;for(const project of this.projects())if(Object.hasOwn(DEMO_DESCRIPTIONS,project.name)){this.db.prepare('INSERT OR IGNORE INTO project_details VALUES(?,?)').run(project.id,project.description);this.db.prepare('UPDATE projects SET description=? WHERE id=?').run(DEMO_DESCRIPTIONS[project.name],project.id);}this.db.prepare("INSERT INTO project_settings VALUES('demo_descriptions','1')").run();});}

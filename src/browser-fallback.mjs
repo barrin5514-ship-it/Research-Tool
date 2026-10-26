@@ -39,6 +39,7 @@ export async function createBrowserFallback({capture,profileProcesses,browserPat
     await lock.writeFile(String(process.pid));try{return await fn();}finally{await lock.close();await unlink(lockFile);}
   }
   return {
+    async collectSaved({known,active}){return locked(async()=>{if(!browserPath||!(await readMeta()).ownerConfirmed||await windowOpen())throw Error("Close the Research Agent sign-in browser and confirm sign-in first.");const {readSavedPage}=await import("./saved-page.mjs");const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+"devtools-browser.ts").href);return readSavedPage({browserPath,profile,known,active,startBrowser:startDevtoolsBrowser});});},
     async status(){return {available:Boolean(capture),ownerConfirmed:Boolean((await readMeta()).ownerConfirmed),windowOpen:await windowOpen(),ytDlpAvailable:Boolean(ytDlp)};},
     async connect(){return locked(async()=>{if(!capture||!browserPath)throw problem('BROWSER_UNAVAILABLE','No supported installed browser was found.');if(!await windowOpen())await launch();return {message:'Sign into Instagram yourself in the Research Agent browser. Close that window, then click “I signed in and closed the browser”.'};});},
     async confirm(){return locked(async()=>{if(await windowOpen())throw problem('BROWSER_BUSY','Close the Research Agent sign-in browser first.');await save({...await readMeta(),ownerConfirmed:true});return {message:'Your confirmation was saved. Session access will be tested during capture.'};});},
