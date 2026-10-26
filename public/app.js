@@ -1,3 +1,4 @@
+import {lastRunOutcome} from './last-run.mjs';
 import {INPUT_LIMITS,validateImportFile} from './input-limits.mjs';
 import {nextBatch} from './batch-preview.mjs';
 import {thumbnailNode} from './thumbnail-view.mjs';
@@ -51,7 +52,7 @@ function render(){
 
   const progress=`${batchState} · ${batch?.done??q.done??0} of ${batch?.total??q.batchSize??0} done · ${costText}`;
   $('batch-progress').textContent=progress+(q.running?' · about '+Math.max(1,Math.ceil(q.estimatedSecondsLeft/60))+' min left':'');
-  $('batch-posts').replaceChildren(...posts.map(post=>{const row=el('li',undefined,'batch-post '+post.label.toLowerCase().replaceAll(' ','-'));row.append(el('strong',post.title.length>140?post.title.slice(0,137)+'…':post.title),el('span',post.collections.join(' · ')||'No collection','small'),el('span',post.label,'pill'));if(post.reason)row.append(el('p',post.reason,'small'));return row;}));
+  $('batch-posts').replaceChildren(...posts.map(post=>{const video=state.videos.find(v=>v.id===post.id),outcome=lastRunOutcome(video,{active:batch?.active||q.running||q.active>0,label:post.label,reason:post.reason}),row=el('li',undefined,'last-run-row');row.append(el('strong',post.title.length>140?post.title.slice(0,137)+'…':post.title),el('span',post.collections.join(' · ')||'Unassigned','small'));const status=el('div',undefined,'last-run-outcome');status.append(el('strong',outcome.status));if(outcome.href){const link=el('a','View result');link.href=outcome.href;link.onclick=()=>{resultFilter='all';$('research-filter').value='all';visibleLimit=state.videos.length;render();requestAnimationFrame(()=>document.getElementById(outcome.href.slice(1))?.scrollIntoView({block:'start'}));};status.append(link);}row.append(status);if(outcome.reason)row.append(el('p',outcome.reason,'small'));return row;}));
   if(!posts.length)$('batch-posts').append(el('li','Choose a collection and start a batch to see its posts.','small'));
   $('pause').disabled=!q.running&&!q.active&&!state.rechecks?.running;
   const money=spendingCards(state.spending,state.balance);
@@ -75,6 +76,7 @@ function render(){
 }
 function card(video){
   const box=el('article',undefined,'result'),top=el('div',undefined,'result-top'),heading=el('div');
+  box.id='result-'+encodeURIComponent(video.id);
   const title=video.result?.title||video.title;
   heading.append(el('h3',title.length>180?title.slice(0,177)+'…':title),el('div',(video.collections.join(' · ')||'Unassigned')+` · ${video.attempts} attempt(s)`+(video.result?.provenance?.provider==='deepseek'?' · DeepSeek':''),'meta'));
   top.append(heading,el('span',videoStatus(video),'pill'));box.append(top);if(video.result)box.append(thumbnailNode(document,video.thumbnailUrl));
