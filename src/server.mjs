@@ -26,6 +26,7 @@ const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = INPUT_LIMITS.importRequestBytes;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/post-view.mjs',['post-view.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/add-links.mjs',['add-links.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/result-routing.mjs',['result-routing.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/last-run.mjs',['last-run.mjs','text/javascript; charset=utf-8']);
