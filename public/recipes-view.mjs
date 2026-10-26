@@ -1,6 +1,6 @@
 import {thumbnailNode} from './thumbnail-view.mjs';
 import {savedRecipes,groceryList,groceryText,GROCERY_GROUPS,loadShopping,saveShopping} from './recipes.mjs';
-export function mountRecipes({document,storage,copy}){
+export function mountRecipes({document,storage,copy,onOpen}){
  const node=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
  const shopping=loadShopping(storage);let fingerprint='',recipes=[];
  const status=document.getElementById('grocery-status');
@@ -14,7 +14,7 @@ export function mountRecipes({document,storage,copy}){
  return function render(videos,excluded=[]){const next=savedRecipes(videos,excluded),key=JSON.stringify(next);if(key===fingerprint)return;fingerprint=key;recipes=next;
   const host=document.getElementById('recipe-list');host.replaceChildren();document.getElementById('recipe-count').textContent=`${recipes.length} saved ${recipes.length===1?'recipe':'recipes'}`;
   if(!recipes.length)host.append(node('p','No analyzed food recipes yet. Recipes will appear here when food posts have saved analysis.'));
-  for(const source of recipes){const card=node('article');card.className='panel saved-recipe';card.id='recipe-'+encodeURIComponent(source.id);card.append(thumbnailNode(document,source.thumbnailUrl),node('h3',source.title));const label=node('label'),select=node('input');select.type='checkbox';select.checked=shopping.selected.has(source.id);select.disabled=!source.recipe.ingredients.length;select.onchange=()=>{if(select.checked)shopping.selected.add(source.id);else shopping.selected.delete(source.id);status.textContent='';persist();groceries();};label.append(select,node('span','Add to grocery list'));card.append(label);
+  for(const source of recipes){const card=node('article');card.className='panel saved-recipe';card.id='recipe-'+encodeURIComponent(source.id);card.append(thumbnailNode(document,source.thumbnailUrl),node('h3',source.title));if(onOpen){const open=node('button','Open recipe');open.className='secondary';open.onclick=()=>onOpen(source);const tag=node('span','Food'),badge=node('span',source.recipe.fullRecipeShown?'Recipe saved':'Recipe incomplete');tag.className='project-tag';badge.className='pill';card.append(tag,badge,open);card.onclick=event=>{if(!event.target.closest('a,button,input,label,details,summary'))onOpen(source);};}const label=node('label'),select=node('input');select.type='checkbox';select.checked=shopping.selected.has(source.id);select.disabled=!source.recipe.ingredients.length;select.onchange=()=>{if(select.checked)shopping.selected.add(source.id);else shopping.selected.delete(source.id);status.textContent='';persist();groceries();};label.append(select,node('span','Add to grocery list'));card.append(label);
    card.append(node('h4','Ingredients'));const ingredients=node('ul');for(const ingredient of source.recipe.ingredients)ingredients.append(node('li',ingredient));card.append(ingredients);if(!source.recipe.ingredients.length)card.append(node('p','No ingredients saved.'));
    card.append(node('h4','Instructions'));const steps=node('ol');for(const step of source.recipe.instructions)steps.append(node('li',step));card.append(steps);if(!source.recipe.instructions.length)card.append(node('p','No steps saved.'));
    if(source.skipReason==='insufficient_content')card.append(node('p',source.classificationReason));

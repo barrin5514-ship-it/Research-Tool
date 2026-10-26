@@ -26,7 +26,7 @@ import {createBrowserFallback} from './browser-fallback.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
-const STATIC = new Map([['/wishlist-view.mjs',['wishlist-view.mjs','text/javascript; charset=utf-8']],['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
+const STATIC = new Map([['/visual-layer.mjs',['visual-layer.mjs','text/javascript; charset=utf-8']],['/wishlist-view.mjs',['wishlist-view.mjs','text/javascript; charset=utf-8']],['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = INPUT_LIMITS.importRequestBytes;
 STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/post-view.mjs',['post-view.mjs','text/javascript; charset=utf-8']);
@@ -101,7 +101,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(path==='/api/posts/analyze/preview')return send(200,savedAnalysis.prepare(body.id));
       if(path==='/api/posts/analyze/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');return send(200,await savedAnalysis.confirm(body));}
       if(savedAnalysis.running)throw Error('Wait for current research to finish.');
-      if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id));}
+      if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id,body.videoIds));}
       if(path==='/api/projects/combine/confirm'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.confirm(body));}
       if(path==='/api/collections/exclusion')return send(200,{excluded:store.setCollectionExcluded(body.name,body.excluded)});
       if(path==='/api/reference/override'){const video=store.get(body.id);if(!video||(!store.isExcluded(video)&&!visualReference(video)))throw Error('This item is not excluded or marked visual reference.');store.overrideReference(body.id);if(queue.running||queue.active.size||batches?.starting||rechecks?.status().running||combinations?.status().running)return send(200,{message:'Marked not reference and queued. Start a new batch when current work finishes.'});if(!batches)throw Error('Batch processing unavailable.');await batches.start({size:1,id:body.id});return send(200,{message:'Marked not reference; analysis started for this video only.'});}
