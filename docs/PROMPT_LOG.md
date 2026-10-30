@@ -1435,3 +1435,7 @@ Verification: docs/REFERENCE_HANDOFF_TEST_OUTPUT.txt contains the full Windows o
 ## 2026-10-30 — Existing reference baseline
 User: Treat all 74 Personafy codes as handled, including missing/uncertain media. Never download them. Only hand off new saves; preserve retries for new failures. No paid calls. Test, commit and push.
 Implementation: All audited codes plus persistent current-reference baseline are excluded from acquisition and retries. No live sync or paid calls during testing.
+
+## 2026-10-30 — Sync now
+User: Add Sync now beside Auto-sync, same max-30 slow-scroll and warning-stop safety; disable during sync/batches; show Found X new posts or a plain error. No paid calls; tests, commit and push.
+Implemented a one-shot sync without enabling scheduled checks. Shared collector, reference hand-off and safety logic; server and dashboard busy guards. Full suite: 194 passed; stand-in browser tests only, no live Instagram sync or paid calls.

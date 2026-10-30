@@ -101,6 +101,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(path==='/api/reference-handoff/retry'){if(sync.running||wishlist.running)throw Error('Wait for current sync or price checks to finish.');return send(200,await referenceHandoff.retry(body.id));}
       if(path==='/api/stop'&&referenceHandoff.running){referenceHandoff.stop();return send(200,{message:'Reference hand-off will stop safely.'});}
       if(referenceHandoff.running)throw Error('Wait for the reference hand-off to finish.');
+      if(path==='/api/saved-sync/now'){if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,await sync.syncNow());}
       if(path==='/api/saved-sync/settings')return send(200,sync.configure(body));
       if(path==='/api/wishlist/confirm'){if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,wishlist.confirm(body));}
       if(sync.running||wishlist.running)throw Error('Wait for the saved-post or price check to finish.');
