@@ -1,0 +1,21 @@
+✔ handoff defaults off; full image is validated, indexed once and excluded from research (15315.9389ms)
+✔ failed post automatically retries only once on next sync, then waits for manual retry (2307.3343ms)
+✔ playable partial image remains Incomplete and never becomes a duplicate stopper (10897.9345ms)
+✔ all Personafy codes stop discovery, including missing media (2194.2462ms)
+✔ security refusal disables handoff and auto-sync and prevents later downloads (2259.2796ms)
+✔ reference work runs before general sync and aborts it on a safety stop (2170.4065ms)
+✔ collection collector enforces a reduced retry-aware cap (1.8998ms)
+✔ media validator rejects empty/corrupt files and fully decodes synthetic images and video (16019.1457ms)
+✔ Cobalt carousel downloader saves each item sequentially and rejects login/rate refusals (2429.7599ms)
+✔ recording refuses an initial warning and stops on a live security signal (6.591ms)
+✔ browser visits the exact reference collection and reads bounded post links using its supplied profile (21.7843ms)
+✔ Personafy audit distinguishes a decodable attachment from a link-only record without modifying its source database (6652.1526ms)
+✔ existing library reference posts form a persistent baseline (2153.4502ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 62595.301

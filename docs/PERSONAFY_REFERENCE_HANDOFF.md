@@ -67,3 +67,6 @@ Files must be regular, non-symlink files, non-empty and within the 80 MiB file l
 `docs/REFERENCE_HANDOFF_TEST_OUTPUT.txt` contains the complete offline suite. Tests use synthetic images/video, fake collection/capture responses and an isolated source database; the source database is byte-identical after the audit test. They cover default-off, exact collection navigation, caps, full decoding, invalid copies, one automatic retry, manual replacement, obsolete-empty-file cleanup, warning cancellation, exclusions, and no research invocation.
 
 **Live reference collection scanning/downloading remains unverified.** The feature was left off; no real posts were handed off and no AI or paid calls were made. The actual destination currently contains only its empty root index. No Personafy code, settings, data or browser profile was modified.
+
+## October 30 update
+All existing Personafy Instagram codes are handled, including missing or uncertain media. A persistent baseline of current library reference posts prevents backfilling them. These codes are never downloaded or retried; retries remain available for newly discovered posts.
