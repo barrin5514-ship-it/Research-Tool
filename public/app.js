@@ -24,6 +24,8 @@ async function action(path,body={}){
   try{const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-research-token':state.csrf},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error);await refresh();return result;}
   catch(e){message(e.message);throw e;}finally{busy=false;}
 }
+const coachlabSelected=new Set();
+async function sendCoachlab(ids){try{const result=await action('/api/coachlab/send',{ids});message(result.message);}catch(error){message(error.message);}}
 const renderWishlist=mountWishlist({document,request:action});
 // One small banner, only while the dashboard is open. No emails, texts or pop-ups.
 function renderPriceBanner(wishlist){const drops=wishlist?.drops,banner=$('price-banner'),text=$('price-banner-text');if(!drops?.count){banner.hidden=true;text.textContent='';return;}const first=drops.items?.[0];text.textContent='Price dropped on '+drops.count+' Wishlist item'+(drops.count===1?'':'s')+(first?' — '+first.title+' is now '+(first.currency||'')+' '+Number(first.newAmount).toFixed(2):'');banner.hidden=false;}
@@ -64,7 +66,7 @@ function render(){
   const videos=dashboardVideos(state.videos),excluded=state.excludedCollections||[];
   renderExclusions(videos,excluded);renderSkipped(videos,excluded);renderRecipes(videos,excluded);$('recipe-results-link').textContent='Recipes are in the Recipes tab ('+savedRecipes(videos,excluded).length+')';
   const projects=state.projects||[],routes=displayRoutes(state.videos,projects,excluded);
-  renderProjects(projects,routes.matched);$('project-results-link').textContent='Videos matched to a project are in Project ideas ('+routes.matched.length+')';
+  renderProjects(projects,routes.matched,state.coachlab);$('project-results-link').textContent='Videos matched to a project are in Project ideas ('+routes.matched.length+')';
   const ideas=collectNewIdeas(routes.research.filter(v=>v.status!=='skipped'&&v.status!=='failed'),projects);
   const uniqueIdeas=[...new Map(ideas.map(idea=>[idea.video.id,idea])).values()];
   $('new-ideas').replaceChildren(...(uniqueIdeas.length?uniqueIdeas.map(({video})=>{const item=el('article',undefined,'idea');const heading=el('h3');const title=el('button',video.result?.title||video.title,'card-title');title.onclick=()=>openFullResult(video);heading.append(title);item.append(heading,thumbnailNode(document,video.thumbnailUrl),el('p',shortSummary(video),'result-summary'));
@@ -203,7 +205,8 @@ function renderSkipped(videos,excluded){
  if(!skipped.length)$('skipped-items').append(el('p','No skipped posts.','small'));if(skipped.length>skippedLimit){const more=el('button','Show 10 more skipped posts','secondary');more.onclick=()=>{skippedLimit+=10;render();};$('skipped-items').append(more);}
 }
 let renderedProjects='';
-function renderProjects(projects,videos){
+function renderProjects(projects,videos,coachlab){
+ const sends=new Map((coachlab?.sends||[]).map(send=>[send.video_id,send]));
  const fingerprint=JSON.stringify(projects),host=$('my-project-list');
  if(fingerprint!==renderedProjects){renderedProjects=fingerprint;host.replaceChildren(...projects.map(project=>{
   const row=el('article',undefined,'panel project-group project-card');row.dataset.projectCard=project.id;row.id='project-'+project.id;row.append(el('h3',project.name+(project.enabled?'':' (off)')),el('p',project.description,'project-description'));
@@ -219,8 +222,8 @@ function renderProjects(projects,videos){
  }));}
  const cards=new Map([...host.children].map(row=>[row.dataset.projectCard,row]));
  for(const project of projects){const row=cards.get(project.id);if(!row)continue;const matches=projectVideoIdeas(videos,project,projects);
-  const slot=row.querySelector('.matched-ideas');slot.replaceChildren(...matches.map(({video,recommendations})=>{const idea=el('article',undefined,'idea project-video');idea.id=projectResultAnchor(project.id,video.id);const titleButton=el('button',video.result?.title||video.title,'card-title');titleButton.onclick=()=>openFullResult(video);idea.append(titleButton,el('span',project.name,'project-tag'),el('span',videoStatus(video),'pill'),el('span',hasDeepSeekResult(video)?'DeepSeek':'Older keyword match','pill'),thumbnailNode(document,video.thumbnailUrl),el('p',shortSummary(video),'result-summary'));const list=el('ul');for(const recommendation of recommendations)for(const line of projectIdeaBullets(recommendation.application))list.append(el('li',line));idea.append(list);
-   const more=el('details');more.dataset.combinedDetail='idea:'+project.id+':'+video.id;more.open=openCombined.has(more.dataset.combinedDetail);more.append(el('summary','Give me more'),card(video,{includeId:false,scope:project.id}));idea.append(more);idea.onclick=event=>{if(!event.target.closest('button,a,summary,input,select,details'))openFullResult(video);};return idea;}));if(!matches.length)slot.append(el('p','No matches yet','small'));
+  const slot=row.querySelector('.matched-ideas');slot.replaceChildren(...matches.map(({video,recommendations})=>{const idea=el('article',undefined,'idea project-video');idea.id=projectResultAnchor(project.id,video.id);const titleButton=el('button',video.result?.title||video.title,'card-title');titleButton.onclick=()=>openFullResult(video);idea.append(titleButton,el('span',project.name,'project-tag'),el('span',videoStatus(video),'pill'),el('span',hasDeepSeekResult(video)?'DeepSeek':'Older keyword match','pill'),thumbnailNode(document,video.thumbnailUrl),el('p',shortSummary(video),'result-summary'));const list=el('ul');for(const recommendation of recommendations)for(const line of projectIdeaBullets(recommendation.application))list.append(el('li',line));idea.append(list);if(project.name==='Martial Arts and Fitness'&&hasDeepSeekResult(video)){const sendLabel=el('label','send-row');const box=document.createElement('input');box.type='checkbox';box.checked=coachlabSelected.has(video.id);box.onchange=()=>{box.checked?coachlabSelected.add(video.id):coachlabSelected.delete(video.id);};const sendStatus=sends.get(video.id);const sendBtn=el('button',sendStatus?.status==='sent'?'Sent to CoachLab':sendStatus?.status==='failed'?'Retry send':'Send to CoachLab','secondary');sendBtn.disabled=!coachlab?.configured;sendBtn.onclick=event=>{event.stopPropagation();sendCoachlab([video.id]);};sendLabel.append(box,document.createTextNode(' select'));idea.append(sendLabel,sendBtn);}
+   const more=el('details');more.dataset.combinedDetail='idea:'+project.id+':'+video.id;more.open=openCombined.has(more.dataset.combinedDetail);more.append(el('summary','Give me more'),card(video,{includeId:false,scope:project.id}));idea.append(more);idea.onclick=event=>{if(!event.target.closest('button,a,summary,input,select,details'))openFullResult(video);};return idea;}));if(project.name==='Martial Arts and Fitness'&&matches.length){const bar=el('div',undefined,'coachlab-send-bar');const sendSel=el('button','Send selected to CoachLab');sendSel.disabled=!coachlab?.configured;sendSel.onclick=()=>{const ids=[...coachlabSelected].filter(id=>matches.some(m=>m.video.id===id));if(ids.length)sendCoachlab(ids);};bar.append(sendSel);if(!coachlab?.configured)bar.append(el('span','CoachLab is not configured on this server.','small'));slot.append(bar);}if(!matches.length)slot.append(el('p','No matches yet','small'));
   const combined=row.querySelector('.combined-ideas');combined.replaceChildren();appendCombinations(combined,project,videos);
  }
 }

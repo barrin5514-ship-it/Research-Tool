@@ -27,6 +27,7 @@ import {createBrowserFallback} from './browser-fallback.mjs';
 import {ClaimCheck} from './claim-check.mjs';
 import {fetchShoppingImage,braveKey} from './brave.mjs';
 import {BraveQuota,unlimitedQuota} from './brave-quota.mjs';
+import {sendToCoachLab} from './coachlab.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
@@ -60,6 +61,8 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
   let maintenance=Promise.resolve();
   const timer=setInterval(()=>{if(wishlist.running||sync.running||referenceHandoff.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
   const csrf = randomBytes(32).toString('hex');
+  const coachlabUrl = (process.env.COACHLAB_URL || '').trim();
+  const coachlabToken = (process.env.COACHLAB_IMPORT_TOKEN || '').trim();
   const server = createServer(async (req,res) => {
     const origin = `http://127.0.0.1:${server.address()?.port || port}`;
     const send = (status,body,type='application/json; charset=utf-8') => {
@@ -74,7 +77,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
       // Product pictures are proxied so the page never loads third-party images directly.
       if(req.method==='GET'&&path.startsWith('/api/shopping-image/')){try{const raw=decodeURIComponent(path.slice('/api/shopping-image/'.length));if(!wishlist.imageAllowed(raw))return send(404,{error:'Picture unavailable'});const image=await fetchShoppingImage(raw);return send(200,image.bytes,image.type);}catch{return send(404,{error:'Picture unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),coachlab:{configured:Boolean(coachlabUrl&&coachlabToken),sends:store.coachlabSends()},paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -139,6 +142,23 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if (path === '/api/retry') {store.retry(body.id);return send(200,{ok:true});}
       if (path === '/api/review') {store.review(body.id,body.status);return send(200,{ok:true});}
       if (path === '/api/shutdown' && onShutdown) {send(200,{ok:true});setImmediate(()=>onShutdown());return;}
+      if(path==='/api/coachlab/send'){
+        if(!coachlabUrl||!coachlabToken)throw Error('CoachLab is not configured on this server (COACHLAB_URL and COACHLAB_IMPORT_TOKEN).');
+        const ids=Array.isArray(body.ids)?body.ids:[body.id];
+        if(!ids.length||ids.length>50)throw Error('Choose at least one post to send.');
+        const mma=store.projects().find(p=>p.name==='Martial Arts and Fitness');
+        if(!mma)throw Error('The Martial Arts and Fitness project is not available.');
+        const results=[];let sent=0;
+        for(const id of ids){
+          const video=store.get(id);
+          const matched=video?.result?.recommendations?.some(r=>r.project===mma.name||r.projectId===mma.id);
+          if(!video||!matched){results.push({id,status:'skipped',reason:'Not matched to Martial Arts and Fitness.'});continue;}
+          const post={title:video.result?.title||video.title,url:video.url,summary:video.result?.summary||'',transcript:video.result?.transcript||''};
+          try{const outcome=await sendToCoachLab({post,baseUrl:coachlabUrl,token:coachlabToken});store.recordCoachlabSend(id,post.url,'sent','');sent++;results.push({id,status:outcome.duplicate?'duplicate':'sent'});}
+          catch(error){store.recordCoachlabSend(id,post.url,'failed',error.message);results.push({id,status:'failed',reason:error.message});}
+        }
+        return send(200,{sent,results,message:`Sent ${sent} post${sent===1?'':'s'} to CoachLab. Nothing is auto-sent; only posts you pick are sent.`});
+      }
       return send(404,{error:'Not found'});
     } catch(e) { return send(e.status || 400,{error:e.message || 'Request failed'}); }
   });

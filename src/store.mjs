@@ -35,6 +35,7 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS scheduled_checks(id INTEGER PRIMARY KEY,kind TEXT NOT NULL,result_json TEXT NOT NULL,at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS coachlab_sends(video_id TEXT PRIMARY KEY REFERENCES videos(id),url TEXT NOT NULL,status TEXT NOT NULL,reason TEXT,at INTEGER NOT NULL);
     `);
     this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='exclusions_seeded'").get()){this.db.prepare("INSERT OR IGNORE INTO collection_exclusions VALUES('reference','reference')").run();this.db.prepare("INSERT INTO project_settings VALUES('exclusions_seeded','1')").run();}});
     this.migrateDemoDescriptions();
@@ -141,6 +142,9 @@ export class LibraryStore {
     if (!row || !['failed', 'needs_analysis', 'skipped'].includes(row.status)) throw new Error('Only failed, skipped, or incomplete items can be retried');
     this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL,updated_at=? WHERE id=?").run(Date.now(), id);
   }
+  // Records the result of a CoachLab send so the dashboard can show Retry or Sent.
+  recordCoachlabSend(videoId,url,status,reason='',at=Date.now()){this.db.prepare('INSERT INTO coachlab_sends VALUES(?,?,?,?,?) ON CONFLICT(video_id) DO UPDATE SET url=excluded.url,status=excluded.status,reason=excluded.reason,at=excluded.at').run(videoId,url,status,reason,at);}
+  coachlabSends(){return this.db.prepare('SELECT * FROM coachlab_sends').all();}
   review(id, status) {
     if (!REVIEW_STATES.includes(status)) throw new Error('Invalid review status');
     const row = this.get(id);
