@@ -9,7 +9,7 @@ function setup({apiKey='test-key'}={}){const store=new LibraryStore(':memory:');
 test('finding matches costs one search, needs confirmation, and stores at most five matches',async()=>{
  const {store,wishlist,searches}=setup();try{
   const preview=wishlist.prepareFind('Buy');
-  assert.equal(preview.estimatedUSD,0.001);
+  assert.equal(preview.estimatedUSD,0);assert.equal(preview.freeSearch.used,1);
   await assert.rejects(wishlist.find({token:preview.token,confirmed:false}),/confirm/i);
   assert.equal(searches(),0);
   const result=await wishlist.find({token:preview.token,confirmed:true});
@@ -24,7 +24,7 @@ test('finding matches costs one search, needs confirmation, and stores at most f
 
 test('a missing server key is reported before any search and never stored in state',()=>{
  const {store,wishlist}=setup({apiKey:''});try{
-  assert.throws(()=>wishlist.prepareFind('Buy'),/SERPER_API_KEY/);
+  assert.throws(()=>wishlist.prepareFind('Buy'),/BRAVE_API_KEY/);
   assert.doesNotMatch(JSON.stringify(wishlist.list()),/test-key/);
  }finally{store.close();}
 });
@@ -79,5 +79,13 @@ test('an unreadable tracked store shows Can not check this store and is not retr
   await blocked.tick();
   assert.equal(calls,1);
   assert.equal(blocked.list().items[0].tracked[0].reason,"Can't check this store");
+ }finally{store.close();}
+});
+
+test('searches stop with a plain message when the free monthly limit is used up',()=>{
+ const {store}=setup();try{
+  const spent={status:()=>({month:'2026-10',used:1000,limit:1000,remaining:0}),reserve:async()=>({allowed:false,month:'2026-10',used:1000,limit:1000,remaining:0})};
+  const capped=new Wishlist({store,apiKey:'k'.repeat(20),quota:spent,search:async()=>{throw Error('must not be called');}});
+  assert.throws(()=>capped.prepareFind('Buy'),/free Brave search limit for this month is used up/);
  }finally{store.close();}
 });

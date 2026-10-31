@@ -25,7 +25,8 @@ import {createEvidenceResearch} from './evidence-research.mjs';
 import {recordUsage,readUsage,usageSummary} from './deepseek-usage.mjs';
 import {createBrowserFallback} from './browser-fallback.mjs';
 import {ClaimCheck} from './claim-check.mjs';
-import {fetchShoppingImage} from './serper.mjs';
+import {fetchShoppingImage,braveKey} from './brave.mjs';
+import {BraveQuota,unlimitedQuota} from './brave-quota.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
@@ -48,14 +49,14 @@ async function readJson(req) {
   for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('These files are too large to upload together. Choose fewer files under 25 MB each.'); error.status = 413; throw error; } chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Invalid JSON request'); }
 }
-export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations,serperKey=''}) {
+export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations,braveKey:key='',braveQuota=unlimitedQuota}) {
   const savedAnalysis=new SavedAnalysis({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
   const researchBusy=()=>queue.running||queue.active.size>0||batches?.starting||savedAnalysis.running||rechecks?.status().running||combinations?.status().running;
   const referenceHandoff=new ReferenceHandoff({store,browser:browserSession,isBusy:researchBusy});
   const sync=new SavedSync({store,browser:browserSession,isBusy:()=>researchBusy()||referenceHandoff.running,handoff:referenceHandoff});
-  const wishlist=new Wishlist({store,apiKey:serperKey,isBusy:()=>researchBusy()||sync.running||referenceHandoff.running});
-  // Serper searches are paid, so every search goes through a cost preview and confirmation.
-  const claims=new ClaimCheck({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:researchBusy,onUsage:record=>recordUsage(USAGE_FILE,record)});
+  const wishlist=new Wishlist({store,apiKey:key,quota:braveQuota,isBusy:()=>researchBusy()||sync.running||referenceHandoff.running});
+  // Brave searches use the free monthly credit, so every search still shows a cost preview.
+  const claims=new ClaimCheck({store,apiKey:process.env.DEEPSEEK_API_KEY,quota:braveQuota,isBusy:researchBusy,onUsage:record=>recordUsage(USAGE_FILE,record)});
   let maintenance=Promise.resolve();
   const timer=setInterval(()=>{if(wishlist.running||sync.running||referenceHandoff.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
   const csrf = randomBytes(32).toString('hex');
@@ -73,7 +74,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
       // Product pictures are proxied so the page never loads third-party images directly.
       if(req.method==='GET'&&path.startsWith('/api/shopping-image/')){try{const raw=decodeURIComponent(path.slice('/api/shopping-image/'.length));if(!wishlist.imageAllowed(raw))return send(404,{error:'Picture unavailable'});const image=await fetchShoppingImage(raw);return send(200,image.bytes,image.type);}catch{return send(404,{error:'Picture unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,serperConfigured:Boolean(serperKey),paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects(),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -120,7 +121,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(path==='/api/posts/analyze/preview')return send(200,savedAnalysis.prepare(body.id));
       if(path==='/api/posts/analyze/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');return send(200,await savedAnalysis.confirm(body));}
       if(savedAnalysis.running)throw Error('Wait for current research to finish.');
-      if(path==='/api/claims/preview'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,claims.prepare(body.id));}
+      if(path==='/api/claims/preview'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,claims.prepare(body.id,body.indexes));}
       if(path==='/api/claims/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,await claims.confirm(body));}
       if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id,body.videoIds));}
       if(path==='/api/projects/combine/confirm'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.confirm(body));}
@@ -180,7 +181,7 @@ export async function start() {
     const combinations=new ProjectCombinations({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches.starting||rechecks.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const balanceTracker=createBalanceTracker({apiKey:process.env.DEEPSEEK_API_KEY,file:join(data,'deepseek-balance.json')});
     let close;
-    server = createApp({store,queue,port,localAIEnabled,researchProvider,paidApproval,browserSession,batches,balanceTracker,rechecks,combinations,serperKey:process.env.SERPER_API_KEY||'',onShutdown:()=>close()});
+    server = createApp({store,queue,port,localAIEnabled,researchProvider,paidApproval,browserSession,batches,balanceTracker,rechecks,combinations,braveKey:braveKey(),braveQuota:new BraveQuota({file:join(data,'brave-usage.json'),limit:Number(process.env.BRAVE_FREE_SEARCHES_PER_MONTH)||1000}),onShutdown:()=>close()});
     await new Promise((done,fail)=>{server.once('error',fail);server.listen(port,'127.0.0.1',done);});
     console.log(`Research Library: http://127.0.0.1:${port}\nBatch mode: up to 25 videos per batch, concurrency ${concurrency}. Research provider: ${researchProvider}; starts only from dashboard; spending tracked without a cap.\nStop with Ctrl+C. Media extraction is not complete research.`);
     let closing=false;

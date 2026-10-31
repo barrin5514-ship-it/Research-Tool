@@ -9,7 +9,7 @@ test('five claims cost far less than two cents and the sixth is left unchecked',
  const cost=estimateClaimCost(CLAIMS);
  assert.equal(cost.claims,5);
  assert.ok(cost.estimatedUSD<0.02);
- assert.ok(cost.searchUSD===0.005);
+ assert.equal(cost.searchUSD,0);assert.equal(cost.freeSearches,5);
 });
 
 test('checking searches once per claim and saves only supplied links, never a made-up one',async()=>{
@@ -64,5 +64,18 @@ test('a server with no DeepSeek key cannot start a check',()=>{
  const store=setup();try{
   const check=new ClaimCheck({store,apiKey:''});
   assert.throws(()=>check.prepare('Post'));
+ }finally{store.close();}
+});
+
+test('the owner can pick one claim, and a used-up Brave allowance refuses first',()=>{
+ const store=setup();try{
+  const check=new ClaimCheck({store,apiKey:'k'.repeat(20)});
+  const preview=check.prepare('Post',[1]);
+  assert.equal(preview.claims,1);
+  assert.equal(preview.freeSearches.needed,1);
+  assert.equal(check.previews.get(preview.token).claims[0],CLAIMS[1]);
+  const spent={status:()=>({month:'2026-10',used:1000,limit:1000,remaining:0}),reserve:async()=>({allowed:false})};
+  const capped=new ClaimCheck({store,apiKey:'k'.repeat(20),quota:spent});
+  assert.throws(()=>capped.prepare('Post'),/free Brave search limit for this month is used up/);
  }finally{store.close();}
 });

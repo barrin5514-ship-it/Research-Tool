@@ -1,6 +1,7 @@
 import {randomUUID,createHash} from 'node:crypto';
 import {DEEPSEEK_ENDPOINT,DEEPSEEK_RATES} from './deepseek.mjs';
-import {serperSearch,SERPER_COST_USD} from './serper.mjs';
+import {braveSearch} from './brave.mjs';
+import {unlimitedQuota,freeLimitMessage} from './brave-quota.mjs';
 // Claim checking asks a search service for pages, then asks DeepSeek to judge each
 // claim using ONLY those pages. A claim is never called "Confirmed" without a real link.
 export const MAX_CLAIMS=5;
@@ -8,14 +9,13 @@ export const MAX_SOURCES=3;
 export const CLAIM_STATUSES=['Confirmed','Not confirmed','Looks false',"Couldn't find proof."];
 const fingerprint=claims=>createHash('sha256').update(JSON.stringify(claims)).digest('hex');
 
-// Worst-case price of one check: every claim searched once, plus one DeepSeek call.
+// Worst-case price of one check: one free Brave search per claim, plus one DeepSeek call.
 export function estimateClaimCost(claims){
  const list=Array.isArray(claims)?claims.slice(0,MAX_CLAIMS):[];
- const searchUSD=list.length*SERPER_COST_USD;
- // 1,200 output tokens is the hard cap; input is estimated from a realistic evidence pack.
+ // Brave searches come from the free monthly credit, so the only real cost is DeepSeek.
  const inputBytes=(list.length*1500)+4000;
  const deepseekUSD=Math.min(0.01,(inputBytes+2048)*DEEPSEEK_RATES.input/1e6+1200*DEEPSEEK_RATES.output/1e6);
- return {claims:list.length,searchUSD,deepseekUSD,estimatedUSD:searchUSD+deepseekUSD};
+ return {claims:list.length,searchUSD:0,freeSearches:list.length,deepseekUSD,estimatedUSD:deepseekUSD};
 }
 
 export function buildClaimPayload({claims,evidence}){
@@ -31,8 +31,8 @@ Rules: Confirmed requires at least one source whose URL is one of the supplied r
 }
 
 export class ClaimCheck{
- constructor({store,apiKey,search=serperSearch,fetcher=fetch,isBusy=()=>false,onUsage=async()=>{},now=Date.now}){
-  Object.assign(this,{store,apiKey,search,fetcher,isBusy,onUsage,now});
+ constructor({store,apiKey,search=braveSearch,fetcher=fetch,isBusy=()=>false,onUsage=async()=>{},now=Date.now,quota=unlimitedQuota}){
+  Object.assign(this,{store,apiKey,search,fetcher,isBusy,onUsage,now,quota});
   this.running=false;this.previews=new Map();
  }
  // Only saved claims that have not been judged yet are offered for checking.
@@ -43,14 +43,22 @@ export class ClaimCheck{
   if(!texts.length)throw Error('This result has no claims to check.');
   return {video,texts};
  }
- prepare(id){
+ prepare(id,indexes){
   if(this.running||this.isBusy())throw Error('Wait for the current research to finish.');
   if(typeof this.apiKey!=='string'||!this.apiKey.trim()||/[\r\n]/.test(this.apiKey))throw Error('Configure the server-side DeepSeek API key');
   const {texts}=this.openClaims(id);
-  const claims=texts.slice(0,MAX_CLAIMS);
+  let claims=texts.slice(0,MAX_CLAIMS);
+  if(Array.isArray(indexes)){
+   // Optional: check only the claims the owner picked (still capped at five).
+   const picks=[...new Set(indexes.filter(n=>Number.isInteger(n)&&n>=0&&n<texts.length))].slice(0,MAX_CLAIMS);
+   if(!picks.length)throw Error('Choose at least one claim to check.');
+   claims=picks.map(n=>texts[n]);
+  }
+  const quota=this.quota.status();
+  if(quota.remaining<claims.length)throw Error(quota.remaining?`Only ${quota.remaining} free Brave searches remain this month; this check needs ${claims.length}. Choose fewer claims or wait for next month.`:freeLimitMessage(quota));
   const cost=estimateClaimCost(claims);
   const token=randomUUID();this.previews.set(token,{id,claims,hash:fingerprint(claims),at:this.now()});
-  return {token,claims:claims.length,skipped:Math.max(0,texts.length-MAX_CLAIMS),estimatedUSD:cost.estimatedUSD,searchUSD:cost.searchUSD,deepseekUSD:cost.deepseekUSD,note:'Up to '+claims.length+' web searches and one DeepSeek call. Nothing is marked Confirmed without a real source link.'};
+  return {token,claims:claims.length,skipped:Array.isArray(indexes)?0:Math.max(0,texts.length-MAX_CLAIMS),estimatedUSD:cost.estimatedUSD,searchUSD:0,deepseekUSD:cost.deepseekUSD,freeSearches:{used:quota.used,limit:quota.limit,needed:claims.length},note:`${claims.length} free Brave search(es) and one DeepSeek call. Nothing is marked Confirmed without a real source link.`};
  }
  async confirm({token,confirmed}){
   const preview=this.previews.get(token);
@@ -58,15 +66,18 @@ export class ClaimCheck{
   if(this.running||this.isBusy())throw Error('Wait for the current research to finish.');
   if(typeof this.apiKey!=='string'||!this.apiKey.trim()||/[\r\n]/.test(this.apiKey))throw Error('Configure the server-side DeepSeek API key');
   const {video,texts}=this.openClaims(preview.id);
-  const claims=texts.slice(0,MAX_CLAIMS);
-  if(fingerprint(claims)!==preview.hash)throw Error('The saved claims changed. Review again.');
+  const claims=preview.claims.filter(claim=>texts.includes(claim));
+  if(claims.length!==preview.claims.length||fingerprint(claims)!==preview.hash)throw Error('The saved claims changed. Review again.');
+  const reserved=await this.quota.reserve(claims.length);
+  if(!reserved.allowed)throw Error(freeLimitMessage(reserved));
   this.previews.delete(token);this.running=true;
   try{
-   // One search per claim, in order. A failed search simply gives that claim no evidence.
+   // One free search per claim, in order. A failed search simply gives that claim no evidence.
    const evidence=[];
    for(const claim of claims){
     let results=[];
-    try{results=await this.search({kind:'web',query:claim,apiKey:this.apiKey,fetcher:this.fetcher,limit:MAX_SOURCES});}catch{results=[];}
+    try{results=await this.search({kind:'web',query:claim,apiKey:this.apiKey,fetcher:this.fetcher,limit:MAX_SOURCES});}
+    catch(error){if(error?.quota)throw error;results=[];}
     evidence.push({claim,results:(results||[]).slice(0,MAX_SOURCES).map(row=>({title:row.title,link:row.link,snippet:row.snippet}))});
    }
    const payload=buildClaimPayload({claims,evidence});
@@ -113,7 +124,7 @@ export class ClaimCheck{
    let reason=typeof row.reason==='string'?row.reason.slice(0,300):'';
    if(status==='Confirmed'&&!sources.length){status='Not confirmed';reason='No supplied source link supported this claim, so it was not confirmed.';}
    if(status==="Couldn't find proof.")reason=reason||'No usable search results were found.';
-   return {claim,status,reason,sources,checkedAt:new Date().toISOString(),method:'Serper web search + DeepSeek text-only review'};
+   return {claim,status,reason,sources,checkedAt:new Date().toISOString(),method:'Brave web search + DeepSeek text-only review'};
   });
  }
 }
