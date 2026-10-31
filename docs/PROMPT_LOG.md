@@ -1439,3 +1439,6 @@ Implementation: All audited codes plus persistent current-reference baseline are
 ## 2026-10-30 — Sync now
 User: Add Sync now beside Auto-sync, same max-30 slow-scroll and warning-stop safety; disable during sync/batches; show Found X new posts or a plain error. No paid calls; tests, commit and push.
 Implemented a one-shot sync without enabling scheduled checks. Shared collector, reference hand-off and safety logic; server and dashboard busy guards. Full suite: 194 passed; stand-in browser tests only, no live Instagram sync or paid calls.
+
+## 2026-10-31 — Research Agent handoff
+User first requested "create a hand off", then clarified "i need a hand off for the research agent". Created docs/RESEARCH_AGENT_HANDOFF.md from the current clean master checkout at 267c7a1, source, package scripts and recorded 194-test output. Includes current sync/reference baseline policy, startup, data boundaries, architecture and live verification gaps. No tests rerun, live calls, paid calls, server starts, data changes or other-project writes. Documentation only; no commit/push requested or performed.
