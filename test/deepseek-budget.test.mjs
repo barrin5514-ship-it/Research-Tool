@@ -22,6 +22,6 @@ test('inactive approval, oversized input and exhausted dollar budget never send 
  const request=budgetedFetch(file,async()=>{calls++;return Response.json({});});
  const body={model:'deepseek-flash',max_tokens:1200,messages:[{}, {content:JSON.stringify({sourceUrl:'https://www.instagram.com/p/new/'})}]};
  try{for(const state of [{active:false,requests:[]},{active:true,requests:[{id:'old',reservedUSD:0.029}]}]){await writeFile(file,JSON.stringify({...state,videos:[{id:'new',url:'https://www.instagram.com/p/new/'}]}));await assert.rejects(request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)}));}
- await writeFile(file,JSON.stringify({active:true,requests:[],videos:[{id:'new',url:'https://www.instagram.com/p/new/'}]}));body.padding='x'.repeat(40000);await assert.rejects(request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)}));assert.equal(calls,0);
+ await writeFile(file,JSON.stringify({active:true,requests:[],videos:[{id:'new',url:'https://www.instagram.com/p/new/'}]}));body.messages[1].content=JSON.stringify({sourceUrl:'https://www.instagram.com/p/new/',padding:'x'.repeat(40000)});await assert.rejects(request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)}));assert.equal(calls,0);
  }finally{await rm(dir,{recursive:true,force:true});}
 });

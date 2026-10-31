@@ -337,6 +337,7 @@ export async function processVideo(job, {
   extract,
   nativeExtract,
   acquireFallback,
+  readMetadata,
 } = {}) {
   interruption(signal);
   const root = await safeWorkspacePath(scratchRoot, { create: true });
@@ -372,6 +373,18 @@ export async function processVideo(job, {
         return { status: 'skipped', result };
       }
       bytes = downloaded.bytes;
+      // Best effort: fill a real title and caption now that the post has been reached,
+      // instead of leaving the "Instagram post"/"Instagram video" placeholder. The post is
+      // opened during processing only; sync never opens extra pages for this.
+      if(readMetadata && /^Instagram (?:video|post)$/i.test(String(job.title||'').trim())){
+        try{
+          const metadata=await readMetadata(job.url ?? job.sourceUrl);
+          const caption=typeof metadata?.caption==='string'?metadata.caption.trim().slice(0,12000):'';
+          const pageTitle=typeof metadata?.pageTitle==='string'?metadata.pageTitle.trim().slice(0,200):'';
+          if(caption){job.title=caption;result.caption=caption;result.title=caption.slice(0,200);}
+          else if(pageTitle&&!/^instagram$/i.test(pageTitle)){result.title=pageTitle;}
+        }catch{ /* keep the placeholder when the page cannot be read safely */ }
+      }
     }
     // MediaRecorder's streaming WebM often has no duration header. Remux it
     // locally (without re-encoding) before the ordinary bounded media probe.

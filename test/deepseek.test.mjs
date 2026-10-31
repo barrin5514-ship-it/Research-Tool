@@ -27,7 +27,11 @@ test('errors do not echo credentials, response bodies, or redirect targets',asyn
  const research=createDeepSeekResearch({apiKey:'private-test-key',approved:true,fetcher:async()=>new Response('private-test-key',{status:302,headers:{location:'https://evil.example'}})});
  await assert.rejects(research({job:{},transcript:'Synthetic source text explains a useful technique with enough content for analysis.'}),e=>!e.message.includes('private-test-key')&&!e.message.includes('evil.example'));
 });
-test('usage is recorded even if paid output cannot be normalized',async()=>{
- const records=[];const research=createDeepSeekResearch({approved:true,apiKey:'test',onUsage:async r=>records.push(r),fetcher:async()=>Response.json({usage:{prompt_tokens:2,completion_tokens:3},choices:[{message:{content:'not json'}}]})});
- await assert.rejects(research({job:{},transcript:'Synthetic source text explains a useful technique with enough content for analysis.'}),/invalid research/);assert.equal(records.length,1);assert.equal(records[0].usage.totalTokens,5);assert.equal(estimateDeepSeekCost({prompt_tokens:-1,completion_tokens:1}),null);
+test('usage is recorded even if paid output cannot be normalized, and the malformed answer is retried once',async()=>{
+ const records=[];let calls=0;const research=createDeepSeekResearch({approved:true,apiKey:'test',retryOnInvalid:true,onUsage:async r=>records.push(r),fetcher:async()=>{calls++;return Response.json({usage:{prompt_tokens:2,completion_tokens:3},choices:[{message:{content:'not json'}}]})}});
+ await assert.rejects(research({job:{},transcript:'Synthetic source text explains a useful technique with enough content for analysis.'}),/invalid research/);assert.equal(calls,2);assert.equal(records.length,2);assert.equal(records[0].usage.totalTokens,5);assert.equal(estimateDeepSeekCost({prompt_tokens:-1,completion_tokens:1}),null);
+});
+test('one broken answer is retried once and succeeds on the second attempt',async()=>{
+ let calls=0;const research=createDeepSeekResearch({approved:true,apiKey:'test',retryOnInvalid:true,fetcher:async()=>{calls++;return Response.json({usage:{prompt_tokens:2,completion_tokens:3},choices:[{message:{content:calls===1?'not json':JSON.stringify({summary:'A saved description after retry',answers:sampleAnswers,claims:[],recommendations:[]})}}]})}});
+ const result=await research({job:{},transcript:'Synthetic source text explains a useful technique with enough content for analysis.'});assert.equal(calls,2);assert.equal(result.summary,'A saved description after retry');
 });
