@@ -24,6 +24,7 @@ import { createWindowsExtraction } from './windows-extraction.mjs';
 import {createEvidenceResearch} from './evidence-research.mjs';
 import {recordUsage,readUsage,usageSummary} from './deepseek-usage.mjs';
 import {createBrowserFallback} from './browser-fallback.mjs';
+import {ClaimCheck} from './claim-check.mjs';
 import {fetchShoppingImage} from './serper.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -53,6 +54,8 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
   const referenceHandoff=new ReferenceHandoff({store,browser:browserSession,isBusy:researchBusy});
   const sync=new SavedSync({store,browser:browserSession,isBusy:()=>researchBusy()||referenceHandoff.running,handoff:referenceHandoff});
   const wishlist=new Wishlist({store,apiKey:serperKey,isBusy:()=>researchBusy()||sync.running||referenceHandoff.running});
+  // Serper searches are paid, so every search goes through a cost preview and confirmation.
+  const claims=new ClaimCheck({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:researchBusy,onUsage:record=>recordUsage(USAGE_FILE,record)});
   let maintenance=Promise.resolve();
   const timer=setInterval(()=>{if(wishlist.running||sync.running||referenceHandoff.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
   const csrf = randomBytes(32).toString('hex');
@@ -117,6 +120,8 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(path==='/api/posts/analyze/preview')return send(200,savedAnalysis.prepare(body.id));
       if(path==='/api/posts/analyze/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');return send(200,await savedAnalysis.confirm(body));}
       if(savedAnalysis.running)throw Error('Wait for current research to finish.');
+      if(path==='/api/claims/preview'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,claims.prepare(body.id));}
+      if(path==='/api/claims/confirm'){if(researchProvider!=='deepseek')throw Error('DeepSeek is unavailable.');if(wishlist.running)throw Error('Wait for the price check to finish.');return send(200,await claims.confirm(body));}
       if(path==='/api/projects/combine/preview'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.prepare(body.id,body.videoIds));}
       if(path==='/api/projects/combine/confirm'){if(!combinations)throw Error('Combining is unavailable.');return send(200,combinations.confirm(body));}
       if(path==='/api/collections/exclusion')return send(200,{excluded:store.setCollectionExcluded(body.name,body.excluded)});

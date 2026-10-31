@@ -140,7 +140,7 @@ function card(video,{includeId=true,scope=''}={}){
   const link=el('a','Open original Instagram video');link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';box.append(link);
   if(video.result?.skipReason==='insufficient_content')box.append(el('p',video.result.classificationReason||video.result.summary));
   if(video.status==='failed')box.append(el('p',failedReason(video),'failure-reason'));
-  if(hasDeepSeekResult(video)){const check=el('button','Check claims (coming soon)','secondary claim-check');check.disabled=true;box.append(check);}
+  if(hasDeepSeekResult(video)&&video.result?.claims?.length){const check=el('button','Check claims','secondary claim-check');const feedback=el('p');feedback.setAttribute('role','status');check.onclick=async()=>{check.disabled=true;try{const preview=await action('/api/claims/preview',{id:video.id});const extra=preview.skipped?' '+preview.skipped+' more claim(s) will stay NOT VERIFIED.':'';if(!window.confirm(`Check ${preview.claims} claim(s)? Estimated cost: about $${preview.estimatedUSD.toFixed(4)} (${preview.claims} search(es) plus one DeepSeek call).${extra}`)){feedback.textContent='Cancelled. No paid call made.';return;}const result=await action('/api/claims/confirm',{token:preview.token,confirmed:true});message(result.message);feedback.textContent=result.message;}catch(error){feedback.textContent=error.message;}finally{check.disabled=false;}};box.append(check,feedback);}
   const result=video.result;
   if(result){
     const details=el('details',undefined,'result-details'),content=el('div');details.dataset.videoId=viewKey;details.open=openDetails.has(viewKey);details.append(el('summary','Show more — transcript, evidence and recommendations'),content);box.append(details);
