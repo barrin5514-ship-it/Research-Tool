@@ -31,7 +31,7 @@ export function normalizeResearch(raw, { model, job, generatedAt = new Date().to
       project: Object.hasOwn(projectContext,x?.project) ? x.project : 'New ideas',
       application: text(x?.application,2000), difficulty: text(x?.difficulty,300),
       estimatedCost: text(x?.estimatedCost,500) || 'Not estimated', risks: text(x?.risks,1500),
-      worthInvestigating: text(x?.worthInvestigating,500), priority: ['high','medium','low'].includes(x?.priority) ? x.priority : 'low'
+      worthInvestigating: text(x?.worthInvestigating,500), priority: ['high','medium','low'].includes(x?.priority) ? x.priority : 'low', alreadyHave: x.alreadyHave === true
     })).filter(x => x.application),
     verification: 'NOT VERIFIED', researchStatus: 'visual_only',
     limitations: ['No speech transcription is configured.', 'Sampled frames do not cover every moment.', 'AI claims and cost estimates have not been independently verified.'],
