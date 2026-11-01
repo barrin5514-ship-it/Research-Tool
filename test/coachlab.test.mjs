@@ -33,3 +33,19 @@ test('sendToCoachLab refuses a missing key and surfaces a refusal', async () => 
   const refused = async () => Response.json({ error: 'Import is not authorized.' }, { status: 401 });
   await assert.rejects(sendToCoachLab({ post: { title: 'x', url: 'https://www.instagram.com/p/x/' }, baseUrl: 'https://coachlab.example/', token: 'k', fetcher: refused }), /not authorized/);
 });
+
+test('sendToCoachLab includes the configured coach email without exposing the token', async () => {
+  const previous = process.env.COACHLAB_IMPORT_OWNER_EMAIL;
+  process.env.COACHLAB_IMPORT_OWNER_EMAIL = 'coach@example.com';
+  try {
+    let seen;
+    const fetcher = async (url, options) => { seen = { url, options }; return Response.json({ ok: true }, { status: 201 }); };
+    await sendToCoachLab({ post: { title: 'Jab', url: 'https://www.instagram.com/p/Jab/', summary: 'A jab drill' }, baseUrl: 'https://coachlab.example/', token: 'secret-token-123', fetcher });
+    const body = JSON.parse(seen.options.body);
+    assert.equal(body.ownerEmail, 'coach@example.com');
+    assert.doesNotMatch(seen.options.body, /secret-token-123/);
+  } finally {
+    if (previous === undefined) delete process.env.COACHLAB_IMPORT_OWNER_EMAIL;
+    else process.env.COACHLAB_IMPORT_OWNER_EMAIL = previous;
+  }
+});

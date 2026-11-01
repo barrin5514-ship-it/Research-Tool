@@ -98,6 +98,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const addedIds=items.filter(item=>!store.get(item.shortcode)).map(item=>item.shortcode);return send(200,{...store.import(items),ids:items.map(item=>item.shortcode),addedIds});
       }
       if(path==='/api/reference-handoff/settings')return send(200,referenceHandoff.configure(body.enabled));
+      if(path==='/api/reference-handoff/send'){if(sync.running||wishlist.running)throw Error('Wait for the current sync or price check to finish.');return send(200,await referenceHandoff.sendSelected(body.ids));}
       if(path==='/api/reference-handoff/retry'){if(sync.running||wishlist.running)throw Error('Wait for current sync or price checks to finish.');return send(200,await referenceHandoff.retry(body.id));}
       if(path==='/api/stop'&&referenceHandoff.running){referenceHandoff.stop();return send(200,{message:'Reference hand-off will stop safely.'});}
       if(referenceHandoff.running)throw Error('Wait for the reference hand-off to finish.');

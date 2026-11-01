@@ -846,3 +846,35 @@ html[data-theme="dark"] button:disabled {
 .app > .sidebar .side-nav {
   display: flex; flex-direction: column; grid-template-columns: none; max-height: none;
 }
+
+/* Research -> CoachLab selection bar and sent archive. */
+.coachlab-send-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 6px;
+  padding: 11px 12px; border: 1px solid rgba(167, 139, 250, .28); border-radius: 12px;
+  background: rgba(124, 58, 237, .08);
+}
+.coachlab-selectall { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #c3cbe8; }
+.coachlab-feedback { flex: 1 1 220px; margin: 0; min-height: 16px; font-size: 11px; color: #9fd8ff; }
+.coachlab-sent {
+  margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(140, 170, 255, .14);
+  border-radius: 12px; background: rgba(8, 12, 26, .45);
+}
+.coachlab-sent > summary { font-size: 11px; color: #b7a6ff; }
+.coachlab-sent ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.coachlab-sent li a { font-size: 11.5px; color: #c3cbe8; }
+
+/* Personafy media picker and sent archive. */
+.personafy-picker { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(140, 170, 255, .12); }
+.personafy-picker h4 { margin: 0 0 6px; font: 600 13.5px var(--font-display); }
+.personafy-selectall { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 8px; font-size: 11px; color: #c3cbe8; }
+.personafy-pick-list { display: grid; gap: 6px; max-height: 240px; overflow: auto; margin: 0 0 10px; padding-right: 4px; }
+.personafy-pick-row { display: flex; align-items: flex-start; gap: 8px; font-size: 11.5px; color: #c3cbe8; padding: 4px 0; border-bottom: 1px solid rgba(140, 170, 255, .07); }
+.personafy-pick-row input { flex: none; margin-top: 2px; }
+.personafy-sent { margin-top: 14px; padding: 10px 12px; border: 1px solid rgba(140, 170, 255, .14); border-radius: 12px; background: rgba(8, 12, 26, .45); }
+.personafy-sent > summary { font-size: 11px; color: #b7a6ff; }
+.personafy-sent p { margin: 7px 0 0; font-size: 11.5px; color: #c3cbe8; }
+
+/* The CoachLab bar and sent archive span the whole project-card row. */
+.matched-ideas > .coachlab-send-bar, .matched-ideas > .coachlab-sent { grid-column: 1 / -1; }
+.send-row { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: #c3cbe8; }
+.send-row input[type="checkbox"] { margin: 0; }

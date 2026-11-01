@@ -34,6 +34,10 @@ export async function sendToCoachLab({ post, baseUrl, token, fetcher = fetch }) 
     discipline: post.discipline || disciplineOf([post.summary, post.transcript, post.title].join(' ')),
     drills: post.drills || techniquesOf([post.summary, post.transcript].join(' '))
   };
+  // Naming the coach account lets CoachLab pick the right owner without a
+  // database id or a Render environment change.
+  const ownerEmail = String(process.env.COACHLAB_IMPORT_OWNER_EMAIL || '').trim();
+  if (ownerEmail) body.ownerEmail = ownerEmail;
   const response = await fetcher(`${String(baseUrl).replace(/\/+$/, '')}/api/import/research-post`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-coachlab-import-token': token },

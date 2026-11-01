@@ -19,3 +19,22 @@ test('browser visits the exact reference collection and reads bounded post links
 test('Personafy audit distinguishes a decodable attachment from a link-only record without modifying its source database',async t=>{const x=await setup(t),source=join(x.root,'..','personafy.db'),mediaRoot=join(x.root,'..','media');await mkdir(mediaRoot);await copyFile(x.media,join(mediaRoot,'good.png'));const db=new DatabaseSync(source);db.exec("CREATE TABLE reference_assets(id TEXT,uri TEXT,source_uri TEXT,trashed_at TEXT,purged_at TEXT);CREATE TABLE reference_sources(reference_asset_id TEXT,platform TEXT,canonical_url TEXT);CREATE TABLE reference_media_files(reference_asset_id TEXT,storage_key TEXT);CREATE TABLE capture_carousel_items(reference_asset_id TEXT,storage_key TEXT);CREATE TABLE link_captures(reference_asset_id TEXT,source_url TEXT,platform TEXT,quality TEXT,completeness TEXT,items_total INTEGER,updated_at TEXT);");for(const id of ['Good','LinkOnly'])db.prepare('INSERT INTO reference_assets VALUES(?,?,?,NULL,NULL)').run(id,post(id).url,post(id).url);db.exec("INSERT INTO reference_media_files VALUES('Good','good.png')");db.close();const before=await readFile(source);const report=await readPersonafyReferences({database:source,mediaRoot});assert.equal(report.posts.find(p=>p.code==='Good').good,true);assert.equal(report.posts.find(p=>p.code==='LinkOnly').good,false);assert.deepEqual(await readFile(source),before);});
 
 test('existing library reference posts form a persistent baseline',async t=>{const x=await setup(t);x.store.import([{...post('Old'),collections:[' reference ']}]);x.store.setSetting('personafy-reference-audit-summary',{codes:['OldDb']});let downloads=0;const h=new ReferenceHandoff({...x,audit,browser:{collectSaved:async({known})=>{assert.equal(known('Old'),true);assert.equal(known('OldDb'),true);return {items:[post('Old')]};}},acquire:async()=>{downloads++;}});h.configure(true);await h.sync();assert.equal(downloads,0);assert.deepEqual(x.store.setting('reference-handoff-baseline',{}).codes,['Old']);});
+
+test('manual Personafy send copies a chosen post and stays visible even when it is already known', async t => {
+  const x = await setup(t);
+  x.store.import([{ shortcode: 'Pick', url: 'https://www.instagram.com/p/Pick/', title: 'Picked post', collections: [] }], { now: 1 });
+  const h = new ReferenceHandoff({
+    ...x,
+    audit: async () => ({ database: 'fixture', mediaRoot: 'fixture', posts: [{ code: 'Pick', good: true }], checkedAt: '2026-11-01T00:00:00Z' }),
+    browser: {},
+    wait: async () => {},
+    acquire: acquisition(x.media),
+  });
+  await h.sendSelected(['Pick']);
+  await h.finished;
+  const state = await h.status();
+  assert.equal(state.items.length, 1);
+  assert.equal(state.items[0].status, 'Done');
+  assert.equal(state.items[0].manual, true);
+  assert.equal(h.rows()[0].manual, true);
+});
