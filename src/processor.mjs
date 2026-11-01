@@ -2,7 +2,7 @@ import {saveThumbnail} from './thumbnails.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { copyFile, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath,pathToFileURL } from 'node:url';
 import {normalizeAnswers,normalizeRecipe} from '../public/answer-format.mjs';
@@ -323,6 +323,20 @@ function baseResult(job, fixture) {
  * Bounded local extraction. The optional analyzer receives temporary evidence
  * before cleanup; the returned document never includes temporary media paths.
  */
+// Total bytes in an owned media folder, used for the "disk space freed" report.
+async function directoryBytes(directory) {
+  let total = 0;
+  let entries;
+  try { entries = await readdir(directory, { withFileTypes: true }); } catch { return 0; }
+  for (const entry of entries) {
+    const target = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) total += await directoryBytes(target);
+    else if (entry.isFile()) total += (await stat(target).catch(() => ({ size: 0 }))).size;
+  }
+  return total;
+}
+
 export async function processVideo(job, {
   scratchRoot,
   thumbnailRoot,
@@ -345,17 +359,38 @@ export async function processVideo(job, {
   const owner = { tag: OWNER_TAG, pid: process.pid, token: randomUUID(), createdAt: new Date().toISOString() };
   const result = baseResult(job, Boolean(fixturePath));
   const attemptSignal = signals(signal, ATTEMPT_MS);
+  // A Personafy reference post is media for its library; this cleaner must never delete it.
+  const referenceJob = (job.collections || []).some((name) => String(name).trim().toLowerCase() === 'reference');
+  const retainedRoot = await safeWorkspacePath(path.join(path.dirname(root), 'retained-media'), { create: true });
+  const retainedDir = path.join(retainedRoot, String(job.id).replace(/[^A-Za-z0-9_-]/g, '_'));
+  let keepMedia = true;
   try {
     await writeFile(path.join(attempt, OWNER_FILE), JSON.stringify(owner), { flag: 'wx' });
     let input = path.join(attempt, 'input.mp4');
     let bytes;
+    // A failed attempt leaves its input in retained-media. Reuse it instead of downloading again.
+    if (!fixturePath) {
+      for (const name of ['input.mp4', 'normalized.webm']) {
+        const candidate = path.join(retainedDir, name);
+        try {
+          const info = await stat(candidate);
+          if (info.isFile() && info.size > 0 && info.size <= MAX_BYTES) {
+            await copyFile(candidate, input, constants.COPYFILE_EXCL);
+            bytes = info.size;
+            result.extraction.mode = 'retained';
+            result.extraction.warnings.push('Reused the video kept from the last failed attempt. No new download was needed.');
+            break;
+          }
+        } catch {}
+      }
+    }
     if (fixturePath) {
       const fixture = await safeWorkspacePath(fixturePath, { directory: false });
       const info = await stat(fixture);
       if (!info.isFile() || info.size < 1 || info.size > MAX_BYTES) fail('SIZE_LIMIT', 'The test fixture is empty, non-regular, or over the size limit.');
       await copyFile(fixture, input, constants.COPYFILE_EXCL);
       bytes = info.size;
-    } else {
+    } else if (!bytes) {
       let downloaded;
       try { downloaded = await download(job, input, { cobaltUrl, fetcher,publicFetcher }, attemptSignal); }
       catch(error) {
@@ -370,6 +405,7 @@ export async function processVideo(job, {
       if (downloaded.skipped) {
         result.extraction.analysisStatus = 'skipped';
         result.extraction.reason = downloaded.skipped;
+        keepMedia = referenceJob || downloaded.skipped === 'visual_reference';
         return { status: 'skipped', result };
       }
       bytes = downloaded.bytes;
@@ -498,7 +534,7 @@ export async function processVideo(job, {
     if (analyzed.provenance && typeof analyzed.provenance === 'object') {
       result.provenance = JSON.parse(JSON.stringify(analyzed.provenance).split(attempt).join('[temporary evidence]'));
     }
-    if(['visual_reference','excluded_collection','insufficient_content'].includes(analyzed.skipReason)){result.skipReason=analyzed.skipReason;result.classificationReason=analyzed.classificationReason||null;result.recommendations=[];result.verification='NOT VERIFIED';result.extraction.visionStatus='not_analyzed';if(analyzed.usage)result.usage=analyzed.usage;return {status:'skipped',result};}
+    if(['visual_reference','excluded_collection','insufficient_content'].includes(analyzed.skipReason)){keepMedia=referenceJob||analyzed.skipReason==='visual_reference';result.skipReason=analyzed.skipReason;result.classificationReason=analyzed.classificationReason||null;result.recommendations=[];result.verification='NOT VERIFIED';result.extraction.visionStatus='not_analyzed';if(analyzed.usage)result.usage=analyzed.usage;return {status:'skipped',result};}
     const researchComplete = Boolean(result.transcript?.trim()) && analyzed.researchStatus === 'complete' && analyzed.sourceVerification === 'completed';
     result.researchStatus = result.transcript?.trim() ? 'requires_verification' : 'visual_only';
     result.extraction.analysisStatus = researchComplete ? 'completed' : 'required';
@@ -510,6 +546,7 @@ export async function processVideo(job, {
       result.verification = 'NOT VERIFIED';
     }
     if (researchComplete) result.researchStatus = 'complete';
+    keepMedia = referenceJob;
     return { status: researchComplete && !fixturePath ? 'completed' : 'needs_analysis', result };
   } catch (error) {
     if (error instanceof ProcessingError) throw error;
@@ -528,7 +565,20 @@ export async function processVideo(job, {
     if (!currentOwner || currentOwner.token !== owner.token || currentOwner.pid !== process.pid) {
       fail('UNSAFE_CLEANUP', 'The scratch ownership marker is missing or changed; the directory was preserved.');
     }
-    await rm(attempt, { recursive: true, force: true });
+    if (!referenceJob && !keepMedia) {
+      // Successful analysis: delete the downloaded video, audio and frames, but keep the
+      // thumbnail and all research text. Count the bytes so the dashboard can show the saving.
+      const freed = await directoryBytes(attempt) + await directoryBytes(retainedDir);
+      await rm(attempt, { recursive: true, force: true });
+      await rm(retainedDir, { recursive: true, force: true }).catch(() => {});
+      result.extraction.mediaFreedBytes = freed;
+    } else {
+      // Failed analysis: keep the video for Retry. Replace any older copy for this post.
+      await rm(retainedDir, { recursive: true, force: true }).catch(() => {});
+      await mkdir(path.dirname(retainedDir), { recursive: true });
+      await rename(attempt, retainedDir);
+      result.extraction.mediaKept = true;
+    }
   }
 }
 

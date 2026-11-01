@@ -37,6 +37,7 @@ export class LibraryStore {
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS coachlab_sends(video_id TEXT PRIMARY KEY REFERENCES videos(id),url TEXT NOT NULL,status TEXT NOT NULL,reason TEXT,at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY,what TEXT NOT NULL DEFAULT '',uses TEXT NOT NULL DEFAULT '');
+      CREATE TABLE IF NOT EXISTS media_cleanup(video_id TEXT PRIMARY KEY,freed_bytes INTEGER NOT NULL,at INTEGER NOT NULL);
     `);
     this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='exclusions_seeded'").get()){this.db.prepare("INSERT OR IGNORE INTO collection_exclusions VALUES('reference','reference')").run();this.db.prepare("INSERT INTO project_settings VALUES('exclusions_seeded','1')").run();}});
     this.migrateDemoDescriptions();
@@ -127,6 +128,7 @@ export class LibraryStore {
     if (status === 'completed' && (!result?.summary || !result?.provenance)) throw new Error('Completed research requires summary and provenance');
     this.db.prepare("UPDATE videos SET status=?,result_json=?,updated_at=?,error=?,review_status='New' WHERE id=?")
       .run(status, JSON.stringify(result), now, status==='failed'?'ANALYSIS_FAILED':null, id);
+    if (result?.extraction?.mediaFreedBytes > 0) this.recordCleanup(id, result.extraction.mediaFreedBytes, now);
   }
   fail(id, error, now = Date.now()) {
     const row = this.get(id);
@@ -150,6 +152,9 @@ export class LibraryStore {
     this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL,updated_at=? WHERE id=?").run(Date.now(), id);
   }
   // Records the result of a CoachLab send so the dashboard can show Retry or Sent.
+  // Remembers how much temporary media was deleted after a successful analysis.
+  recordCleanup(videoId,bytes,at=Date.now()){if(!Number.isFinite(bytes)||bytes<0)return;this.db.prepare('INSERT INTO media_cleanup VALUES(?,?,?) ON CONFLICT(video_id) DO UPDATE SET freed_bytes=excluded.freed_bytes,at=excluded.at').run(videoId,Math.round(bytes),at);}
+  cleanupStats(){const row=this.db.prepare('SELECT COUNT(*) AS posts,COALESCE(SUM(freed_bytes),0) AS bytes FROM media_cleanup').get();return {posts:row?.posts||0,bytes:row?.bytes||0};}
   recordCoachlabSend(videoId,url,status,reason='',at=Date.now()){this.db.prepare('INSERT INTO coachlab_sends VALUES(?,?,?,?,?) ON CONFLICT(video_id) DO UPDATE SET url=excluded.url,status=excluded.status,reason=excluded.reason,at=excluded.at').run(videoId,url,status,reason,at);}
   coachlabSends(){return this.db.prepare('SELECT * FROM coachlab_sends').all();}
   review(id, status) {
