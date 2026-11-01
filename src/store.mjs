@@ -152,6 +152,15 @@ export class LibraryStore {
     this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL,updated_at=? WHERE id=?").run(Date.now(), id);
   }
   // Records the result of a CoachLab send so the dashboard can show Retry or Sent.
+  // Stores the first caption line and full caption after the browser reads a post.
+  updateVideoMetadata(id,{title,caption}={}){
+    const row=this.db.prepare('SELECT result_json FROM videos WHERE id=?').get(id);
+    if(!row)throw Error('Post not found.');
+    const cleanTitle=String(title||'').trim().slice(0,200),cleanCaption=String(caption||'').trim().slice(0,12000);
+    let resultJson=row.result_json;
+    if(resultJson){const result=JSON.parse(resultJson);result.title=cleanTitle;result.caption=cleanCaption;resultJson=JSON.stringify(result);}
+    this.db.prepare('UPDATE videos SET title=?,result_json=?,updated_at=? WHERE id=?').run(cleanTitle,resultJson,Date.now(),id);
+  }
   // Remembers how much temporary media was deleted after a successful analysis.
   recordCleanup(videoId,bytes,at=Date.now()){if(!Number.isFinite(bytes)||bytes<0)return;this.db.prepare('INSERT INTO media_cleanup VALUES(?,?,?) ON CONFLICT(video_id) DO UPDATE SET freed_bytes=excluded.freed_bytes,at=excluded.at').run(videoId,Math.round(bytes),at);}
   cleanupStats(){const row=this.db.prepare('SELECT COUNT(*) AS posts,COALESCE(SUM(freed_bytes),0) AS bytes FROM media_cleanup').get();return {posts:row?.posts||0,bytes:row?.bytes||0};}

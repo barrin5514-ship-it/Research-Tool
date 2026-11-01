@@ -878,3 +878,19 @@ html[data-theme="dark"] button:disabled {
 .matched-ideas > .coachlab-send-bar, .matched-ideas > .coachlab-sent { grid-column: 1 / -1; }
 .send-row { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: #c3cbe8; }
 .send-row input[type="checkbox"] { margin: 0; }
+
+/* Thumbnail + Instagram link on the Personafy and skipped lists. */
+.personafy-pick-wrap { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(140, 170, 255, .07); }
+.personafy-pick-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #c3cbe8; }
+.personafy-pick-row .video-thumbnail { width: 54px; height: 40px; object-fit: cover; border-radius: 6px; flex: none; }
+.personafy-pick-row .thumbnail-placeholder { width: 54px; height: 40px; font-size: 7px; display: grid; place-items: center; flex: none; }
+.personafy-open { font-size: 10.5px; white-space: nowrap; color: #9fd8ff; }
+.skipped-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.skipped-row .video-thumbnail { width: 54px; height: 40px; object-fit: cover; border-radius: 6px; }
+.skipped-row .thumbnail-placeholder { width: 54px; height: 40px; font-size: 7px; display: grid; place-items: center; }
+
+/* Keep the Instagram link separate from the caption and status. */
+.reference-handoff-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.reference-handoff-row > p { flex-basis: 100%; margin: 4px 0 0; }
+.reference-handoff-row .video-thumbnail { width: 54px; height: 40px; object-fit: cover; border-radius: 6px; }
+.personafy-open { margin-left: 4px; }

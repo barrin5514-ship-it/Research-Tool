@@ -29,6 +29,7 @@ import {fetchShoppingImage,braveKey} from './brave.mjs';
 import {BraveQuota,unlimitedQuota} from './brave-quota.mjs';
 import {sendToCoachLab} from './coachlab.mjs';
 import {DRAFT_PROFILES} from './project-drafts.mjs';
+import {enrichPosts} from './post-enrichment.mjs';
 import {createStaticResolver} from './static-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -41,6 +42,7 @@ async function readJson(req) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new Error('Invalid JSON request'); }
 }
 export function createApp({store,queue,localAIEnabled=false,researchProvider='deepseek',paidApproval=false,port=5199,thumbnailRoot=join(ROOT,'.research-data','thumbnails'),onShutdown,browserSession,batches,balanceTracker,rechecks,combinations,braveKey:key='',braveQuota=unlimitedQuota}) {
+  const enrichment={running:false,done:0,total:0,message:'',stopped:null};
   const savedAnalysis=new SavedAnalysis({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
   const researchBusy=()=>queue.running||queue.active.size>0||batches?.starting||savedAnalysis.running||rechecks?.status().running||combinations?.status().running;
   const referenceHandoff=new ReferenceHandoff({store,browser:browserSession,isBusy:researchBusy});
@@ -67,7 +69,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
       // Product pictures are proxied so the page never loads third-party images directly.
       if(req.method==='GET'&&path.startsWith('/api/shopping-image/')){try{const raw=decodeURIComponent(path.slice('/api/shopping-image/'.length));if(!wishlist.imageAllowed(raw))return send(404,{error:'Picture unavailable'});const image=await fetchShoppingImage(raw);return send(200,image.bytes,image.type);}catch{return send(404,{error:'Picture unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects().map(p=>({...p,draft:DRAFT_PROFILES[p.name]||null})),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),coachlab:{configured:Boolean(coachlabUrl&&coachlabToken),sends:store.coachlabSends()},paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),mediaCleanup:store.cleanupStats(),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects().map(p=>({...p,draft:DRAFT_PROFILES[p.name]||null})),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),enrichment:{...enrichment},rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),coachlab:{configured:Boolean(coachlabUrl&&coachlabToken),sends:store.coachlabSends()},paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),mediaCleanup:store.cleanupStats(),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -98,6 +100,18 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         const addedIds=items.filter(item=>!store.get(item.shortcode)).map(item=>item.shortcode);return send(200,{...store.import(items),ids:items.map(item=>item.shortcode),addedIds});
       }
       if(path==='/api/reference-handoff/settings')return send(200,referenceHandoff.configure(body.enabled));
+      if(path==='/api/posts/enrich'){
+        if(!browserSession)throw Error('The Instagram browser is unavailable.');
+        if(enrichment.running)throw Error('Captions and thumbnails are already loading.');
+        if(queue.running||queue.active.size||sync.running||wishlist.running||referenceHandoff.running||batches?.starting)throw Error('Wait for the current work to finish before loading captions.');
+        const ids=Array.isArray(body.ids)?body.ids.filter(id=>typeof id==='string').slice(0,20):null;
+        enrichment.running=true;enrichment.done=0;enrichment.total=0;enrichment.stopped=null;enrichment.message='Loading captions and thumbnails slowly, one post at a time…';
+        enrichPosts({store,browser:browserSession,thumbnailRoot,ids,onProgress:progress=>{enrichment.done=progress.done;enrichment.total=progress.total;}})
+          .then(result=>{enrichment.done=result.done;enrichment.total=result.total;enrichment.stopped=result.stopped;enrichment.message=result.message;})
+          .catch(error=>{enrichment.stopped=error.message;enrichment.message=error.message;})
+          .finally(()=>{enrichment.running=false;});
+        return send(200,{message:'Loading captions and thumbnails one at a time. This can take a few minutes.'});
+      }
       if(path==='/api/reference-handoff/send'){if(sync.running||wishlist.running)throw Error('Wait for the current sync or price check to finish.');return send(200,await referenceHandoff.sendSelected(body.ids));}
       if(path==='/api/reference-handoff/retry'){if(sync.running||wishlist.running)throw Error('Wait for current sync or price checks to finish.');return send(200,await referenceHandoff.retry(body.id));}
       if(path==='/api/stop'&&referenceHandoff.running){referenceHandoff.stop();return send(200,{message:'Reference hand-off will stop safely.'});}
