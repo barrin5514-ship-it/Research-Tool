@@ -57,3 +57,6 @@ body .stats{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:700px
 .shopping-match p{margin:4px 0}
 .shopping-match a{margin-right:10px}
 .wishlist-find{margin:14px 0;padding:12px;border:1px dashed var(--line);border-radius:10px}
+
+/* Shown only when a still-running old server cannot serve the new theme. */
+.stale-banner{position:sticky;top:0;z-index:999;padding:12px 18px;background:#fff3cd;border-bottom:2px solid #c78c20;color:#5c3b00;font:600 14px/1.45 system-ui,sans-serif;text-align:center}

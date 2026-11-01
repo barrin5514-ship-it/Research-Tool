@@ -50,3 +50,24 @@ test('installed yt-dlp is tried before browser, with configs and cookie argument
  },capture:{async capture(){browserCalls++;throw Error('Must not be called');}}});
  assert.equal((await controller.acquire(args)).method,'yt-dlp');assert.equal(browserCalls,0);
 });
+
+test('status caches the expensive browser process scan briefly', async (t) => {
+  const root = await mkdtemp(resolve('.processor-test-browser-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let scans = 0;
+  let clock = 1_000_000;
+  const controller = await createBrowserFallback({
+    dataRoot: join(root, 'profiles'),
+    browserPath: 'stand-in-browser',
+    profileProcesses: async () => { scans += 1; return { all: [] }; },
+    now: () => clock,
+    ytDlp: null,
+  });
+  const first = await controller.status();
+  const second = await controller.status();
+  assert.deepEqual(first, second);
+  assert.equal(scans, 1, 'a second poll reuses the cached status');
+  clock += 300001;
+  await controller.status();
+  assert.equal(scans, 2, 'the cache expires after five minutes');
+});

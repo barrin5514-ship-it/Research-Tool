@@ -99,8 +99,11 @@ export class LibraryStore {
     const memberships = this.db.prepare('SELECT video_id,name FROM memberships ORDER BY name').all();
     const grouped = new Map();
     for (const item of memberships) { if (!grouped.has(item.video_id)) grouped.set(item.video_id,[]); grouped.get(item.video_id).push(item.name); }
+    // Fetch the per-video flags once instead of running two queries for every row.
+    const overrides = new Set(this.db.prepare('SELECT video_id FROM research_overrides').all().map(row => row.video_id));
+    const september = new Set(this.db.prepare('SELECT video_id FROM export_presence WHERE september=1 AND october=0').all().map(row => row.video_id));
     return this.db.prepare('SELECT * FROM videos ORDER BY created_at DESC,id').all().map(row => ({
-      ...row, researchOverride:Boolean(this.db.prepare('SELECT 1 FROM research_overrides WHERE video_id=?').get(row.id)), septemberOnly: Boolean(this.db.prepare('SELECT 1 FROM export_presence WHERE video_id=? AND september=1 AND october=0').get(row.id)), result: row.result_json ? this.applyManual(row.id,JSON.parse(row.result_json)) : null, result_json: undefined,
+      ...row, researchOverride: overrides.has(row.id), septemberOnly: september.has(row.id), result: row.result_json ? this.applyManual(row.id,JSON.parse(row.result_json)) : null, result_json: undefined,
       collections: grouped.get(row.id) || []
     }));
   }

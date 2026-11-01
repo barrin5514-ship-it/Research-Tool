@@ -29,27 +29,12 @@ import {fetchShoppingImage,braveKey} from './brave.mjs';
 import {BraveQuota,unlimitedQuota} from './brave-quota.mjs';
 import {sendToCoachLab} from './coachlab.mjs';
 import {DRAFT_PROFILES} from './project-drafts.mjs';
+import {createStaticResolver} from './static-files.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE_FILE=process.env.RESEARCH_USAGE_FILE||join(ROOT,'.research-data','deepseek-usage.jsonl');
-const STATIC = new Map([['/display-errors.js',['display-errors.js','text/javascript; charset=utf-8']],['/visual-layer.mjs',['visual-layer.mjs','text/javascript; charset=utf-8']],['/wishlist-view.mjs',['wishlist-view.mjs','text/javascript; charset=utf-8']],['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
+const staticFiles=createStaticResolver({root:join(ROOT,'public')});
 const MAX_BODY = INPUT_LIMITS.importRequestBytes;
-for(const file of ['hologram-map.mjs','hologram-layout.mjs','vendor/three/three.module.js','vendor/three/three.core.js','vendor/three/OrbitControls.js'])STATIC.set('/'+file,[file,'text/javascript; charset=utf-8']);
-STATIC.set('/result-view.mjs',['result-view.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/post-view.mjs',['post-view.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/add-links.mjs',['add-links.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/result-routing.mjs',['result-routing.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/last-run.mjs',['last-run.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/input-limits.mjs',['input-limits.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/thumbnail-view.mjs',['thumbnail-view.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/batch-preview.mjs',['batch-preview.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/recipes.mjs',['recipes.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/recipes-view.mjs',['recipes-view.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/answer-format.mjs',['answer-format.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/theme.css',['theme.css','text/css; charset=utf-8']);
-STATIC.set('/favicon.svg',['favicon.svg','image/svg+xml']);
-STATIC.set('/dashboard-view.mjs',['dashboard-view.mjs','text/javascript; charset=utf-8']);
-STATIC.set('/hero-core.mjs',['hero-core.mjs','text/javascript; charset=utf-8']);
 async function readJson(req) {
   const chunks = []; let length = 0;
   for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('These files are too large to upload together. Choose fewer files under 25 MB each.'); error.status = 413; throw error; } chunks.push(chunk); }
@@ -78,7 +63,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
     try {
       if (req.headers.host !== new URL(origin).host) return send(403,{error:'Invalid local host'});
       const path = new URL(req.url,origin).pathname;
-      if (req.method === 'GET' && STATIC.has(path)) { const [file,type]=STATIC.get(path); return send(200,await readFile(join(ROOT,'public',file)),type); }
+      if (req.method === 'GET') { const asset=await staticFiles(path); if(asset) return send(200,await readFile(asset.path),asset.type); }
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
       // Product pictures are proxied so the page never loads third-party images directly.
       if(req.method==='GET'&&path.startsWith('/api/shopping-image/')){try{const raw=decodeURIComponent(path.slice('/api/shopping-image/'.length));if(!wishlist.imageAllowed(raw))return send(404,{error:'Picture unavailable'});const image=await fetchShoppingImage(raw);return send(200,image.bytes,image.type);}catch{return send(404,{error:'Picture unavailable'});}}
@@ -191,6 +176,9 @@ export async function start() {
     if (!Number.isInteger(port) || port<1024 || port>65535) throw new Error('RESEARCH_PORT must be 1024–65535');
     const concurrency = 1;
     const browserSession=await createBrowserFallback();
+    // Warm the cached browser status during startup so the first dashboard poll
+    // does not wait on the Windows process scan.
+    browserSession?.status?.().catch(()=>{});
     const localAIEnabled = process.env.RESEARCH_LOCAL_AI === '1';
     const researchProvider=process.env.RESEARCH_PROVIDER||'deepseek';
     if(!['deepseek','local','evidence'].includes(researchProvider))throw Error('Unknown research provider');
