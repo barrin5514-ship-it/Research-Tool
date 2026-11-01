@@ -31,7 +31,7 @@ import {sendToCoachLab} from './coachlab.mjs';
 import {DRAFT_PROFILES} from './project-drafts.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE_FILE=join(ROOT,'.research-data','deepseek-usage.jsonl');
+const USAGE_FILE=process.env.RESEARCH_USAGE_FILE||join(ROOT,'.research-data','deepseek-usage.jsonl');
 const STATIC = new Map([['/display-errors.js',['display-errors.js','text/javascript; charset=utf-8']],['/visual-layer.mjs',['visual-layer.mjs','text/javascript; charset=utf-8']],['/wishlist-view.mjs',['wishlist-view.mjs','text/javascript; charset=utf-8']],['/',['index.html','text/html; charset=utf-8']],['/app.js',['app.js','text/javascript; charset=utf-8']],['/style.css',['style.css','text/css; charset=utf-8']]]);
 const MAX_BODY = INPUT_LIMITS.importRequestBytes;
 for(const file of ['hologram-map.mjs','hologram-layout.mjs','vendor/three/three.module.js','vendor/three/three.core.js','vendor/three/OrbitControls.js'])STATIC.set('/'+file,[file,'text/javascript; charset=utf-8']);
@@ -46,6 +46,10 @@ STATIC.set('/batch-preview.mjs',['batch-preview.mjs','text/javascript; charset=u
 STATIC.set('/recipes.mjs',['recipes.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/recipes-view.mjs',['recipes-view.mjs','text/javascript; charset=utf-8']);
 STATIC.set('/answer-format.mjs',['answer-format.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/theme.css',['theme.css','text/css; charset=utf-8']);
+STATIC.set('/favicon.svg',['favicon.svg','image/svg+xml']);
+STATIC.set('/dashboard-view.mjs',['dashboard-view.mjs','text/javascript; charset=utf-8']);
+STATIC.set('/hero-core.mjs',['hero-core.mjs','text/javascript; charset=utf-8']);
 async function readJson(req) {
   const chunks = []; let length = 0;
   for await (const chunk of req) { length += chunk.length; if (length > MAX_BODY) { const error = new Error('These files are too large to upload together. Choose fewer files under 25 MB each.'); error.status = 413; throw error; } chunks.push(chunk); }

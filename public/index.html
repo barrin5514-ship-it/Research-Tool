@@ -1,47 +1,188 @@
 <!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Research Library</title><link rel="stylesheet" href="/style.css"><script src="/display-errors.js" defer></script><script src="/app.js" type="module"></script></head>
+<html lang="en" data-theme="dark">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Research Agent — AI Command Center</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/theme.css"><script src="/display-errors.js" defer></script><script src="/app.js" type="module"></script></head>
 <body>
-<header><div class="brand">R<span>Research Library</span></div><span class="badge">LOCAL RESEARCH MVP</span></header>
-<main>
-<div class="intro"><p class="eyebrow">FROM SAVED VIDEOS TO USEFUL IDEAS</p><h1>Find something worth trying.</h1><p>Your saved posts, clear research notes, and ideas for your projects.</p></div>
-<div class="view-navigation"><a href="#idea-map" class="home-link">Idea map</a><details id="view-menu"><summary>Menu</summary><nav class="section-nav" aria-label="Main sections"><a href="#my-library">My library</a><a href="#research-results">Research results</a><a href="#project-ideas">Project ideas</a><a href="#recipes">Recipes</a><a href="#wishlist">Wishlist</a></nav></details></div>
-<p class="notice">Research notes are suggestions, not verified facts. Speech transcription, reading on-screen text, and visual reasoning are shown separately.</p>
+<svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-brain" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="7" r="1.6"/><circle cx="19" cy="6" r="1.6"/><circle cx="19" cy="18" r="1.6"/><circle cx="5" cy="17" r="1.6"/><path d="M8.6 10.4 6.2 8.2M15.4 10.4l2.4-2.6M8.6 13.6l-2.4 2.2M15.4 13.6l2.4 2.6M9 12H4m11 0h5"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></symbol>
+<symbol id="i-library" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M8.4 14.4a6 6 0 1 1 7.2 0c-.9.7-1.4 1.6-1.4 2.6h-4.4c0-1-.5-1.9-1.4-2.6Z"/></symbol>
+<symbol id="i-web" viewBox="0 0 24 24"><circle cx="12" cy="6" r="2.4"/><circle cx="5.5" cy="17" r="2.4"/><circle cx="18.5" cy="17" r="2.4"/><path d="M10.5 8.2 7 14.8m6.5-6.6 3.5 6.6M8 17h8"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.6 2.6-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-3.6v-.2a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.9 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3.5v-3.6h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.9 7.4 7.5 4.8l.1.1A1.7 1.7 0 0 0 9.5 5a1.7 1.7 0 0 0 1-1.6V3.2h3.6v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2.6 2.6-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v3.6h-.2a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+<symbol id="i-recipe" viewBox="0 0 24 24"><path d="M5 4.5h8a3 3 0 0 1 3 3V21H8a3 3 0 0 1-3-3z"/><path d="M16 8h3v13h-3M8 8h5M8 11.5h5M8 15h3"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2.3 10a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 15.5V10a6 6 0 1 0-12 0v5.5L4 18.5h16z"/><path d="M10 21h4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-youtube" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10.5 9.2v5.6l4.8-2.8z"/></symbol>
+<symbol id="i-reddit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="11" r=".9" fill="currentColor" stroke="none"/><circle cx="15" cy="11" r=".9" fill="currentColor" stroke="none"/><path d="M8.2 14c1 1.6 2.3 2.4 3.8 2.4s2.8-.8 3.8-2.4M12 7.2V4.5"/><circle cx="12" cy="3.8" r="1"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1.4 1.4"/><path d="M13.5 10.5a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1.4-1.4"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3.5h7l5 5V21H6z"/><path d="M13 3.5v5h5M9 13h6M9 16.5h6"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18l-1.8-5.4L4.5 10.8 10.2 9z"/><path d="M18.5 16.5 19.2 19l2.3.8-2.3.8-.7 2.4-.7-2.4-2.3-.8 2.3-.8z"/></symbol>
+<symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6h5"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h15M14 6.5 20.5 12 14 17.5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 22 20.5H2z"/><path d="M12 9.5v5M12 17.6v.4"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/><rect x="10" y="10" width="4" height="4" rx="1"/><path d="M9.5 3v3.5M14.5 3v3.5M9.5 17.5V21M14.5 17.5V21M3 9.5h3.5M3 14.5h3.5M17.5 9.5H21M17.5 14.5H21"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 17.5v2a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-2"/></symbol>
+<symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 5v14M15 8.5v7M19 10.5v3M21.5 12H23"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></symbol>
+</svg>
+<div class="app">
+<aside class="sidebar" id="sidebar" aria-label="Main navigation">
+  <a class="side-brand" href="#home" aria-label="Research Agent home"><span class="brand-mark"><svg class="icon"><use href="#i-brain"></use></svg></span><span class="brand-text"><strong>Research Agent</strong><small>AI RESEARCH LAB</small></span></a>
+  <nav class="side-nav" aria-label="Sections">
+    <p class="nav-label">Command</p>
+    <a href="#home" data-nav="home"><svg class="icon"><use href="#i-home"></use></svg><span>Home</span></a>
+    <a href="#research-results" data-nav="research-results"><svg class="icon"><use href="#i-search"></use></svg><span>Research</span></a>
+    <a href="#my-library" data-nav="my-library"><svg class="icon"><use href="#i-library"></use></svg><span>Library</span></a>
+    <a href="#project-ideas" data-nav="project-ideas"><svg class="icon"><use href="#i-grid"></use></svg><span>Projects</span></a>
+    <a href="#ideas" data-nav="ideas"><svg class="icon"><use href="#i-bulb"></use></svg><span>Ideas</span></a>
+    <a href="#idea-map" data-nav="idea-map"><svg class="icon"><use href="#i-web"></use></svg><span>Knowledge Web</span></a>
+    <p class="nav-label">Workspace</p>
+    <a href="#recipes" data-nav="recipes"><svg class="icon"><use href="#i-recipe"></use></svg><span>Recipes</span></a>
+    <a href="#wishlist" data-nav="wishlist"><svg class="icon"><use href="#i-cart"></use></svg><span>Wishlist</span></a>
+  </nav>
+  <div class="side-footer">
+    <div class="side-status" id="sidebar-status" aria-live="polite"></div>
+    <a href="#settings" data-nav="settings" class="side-settings"><svg class="icon"><use href="#i-settings"></use></svg><span>Settings</span></a>
+  </div>
+</aside>
+<div class="nav-scrim" id="nav-scrim" hidden></div>
+<div class="app-main">
+<header class="topbar">
+  <div class="topbar-left"><button class="icon-btn menu-btn" id="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false"><svg class="icon"><use href="#i-menu"></use></svg></button><span class="view-chip" id="current-view">Home</span></div>
+  <div class="topbar-title"><p class="kicker">AI COMMAND CENTER</p><h1>Research <span class="grad">Agent</span></h1><p class="subtitle">Your AI-powered research lab for content, insights and project ideas.</p></div>
+  <div class="topbar-actions"><button class="icon-btn activity-btn" id="top-activity" type="button" aria-label="Jump to research activity" title="Research activity"><svg class="icon"><use href="#i-bell"></use></svg><span class="notify-dot" id="activity-dot" hidden></span></button><div class="avatar" title="Local workspace">RA</div></div>
+</header>
+<main class="content">
 <div id="message" role="status" aria-live="polite"></div>
 <div id="price-banner" class="price-banner" role="status" aria-live="polite" hidden><span id="price-banner-text"></span><button id="price-banner-dismiss" class="secondary">Dismiss</button></div>
-<section id="idea-map" class="workspace-section" aria-labelledby="map-heading"><h2 id="map-heading">Your idea map</h2><p>Glowing spheres are projects. Small lights are videos. Bright lines show ideas used together.</p><div class="map-tools"><button id="map-connect" class="secondary" aria-pressed="false">Connect ideas</button><button id="map-clear" class="secondary">Clear selection</button><label for="map-project">Plan for project</label><select id="map-project"></select><button id="map-combine" disabled>Combine these</button></div><p id="map-selection" role="status">Choose Connect ideas, then click dots or drag between them.</p><p class="small">Connecting changes only this view. Combine these always shows a cost confirmation before any paid call.</p><div class="hologram-options"><label><input id="map-simple" type="checkbox"> Simple 2D view</label><button id="map-reset" class="secondary">Show all projects</button><span id="hologram-status" role="status">Loading 3D view…</span></div><div id="hologram-stage"><div id="hologram-tooltip" hidden></div><div id="hologram-legend" aria-label="Project colors"></div><span class="hologram-hint">Drag to rotate · scroll to zoom · click a project to look closer</span></div><details class="hologram-accessible"><summary>Open or connect a video by title</summary><div id="hologram-video-list"></div></details><div class="map-scroll"><svg id="idea-map-svg" xmlns="http://www.w3.org/2000/svg"></svg></div></section>
-<dialog id="full-result"><button id="close-full-result" class="secondary">Close result</button><div id="full-result-content"></div></dialog>
-<section id="my-library" class="workspace-section" aria-labelledby="library-heading">
-<p class="eyebrow">01 / COLLECT</p><h2 id="library-heading">My library</h2><p>Posts left to do. Finished summaries appear in Research results.</p>
+
+<section id="home" class="workspace-section home-section" aria-labelledby="home-heading">
+<h2 id="home-heading" class="sr-only">Command Center</h2>
+<div class="command-grid">
+  <section class="panel hero-panel" aria-label="Holographic research core">
+    <div class="hero-top"><span class="eyebrow">NEURAL RESEARCH CORE</span><span id="core-status" class="live-pill"><i></i>ONLINE</span></div>
+    <div class="hero-chamber"><div id="hero-core" aria-hidden="true"></div></div>
+    <div class="hero-stats" id="hero-stats"></div>
+  </section>
+  <div class="command-middle">
+    <section class="panel start-panel" aria-labelledby="start-heading">
+      <header class="panel-head"><span class="panel-icon"><svg class="icon"><use href="#i-spark"></use></svg></span><h2 id="start-heading">Start New Research</h2></header>
+      <div class="source-chips" role="group" aria-label="Choose a research source">
+        <button type="button" class="source-chip is-active" data-source="instagram"><svg class="icon"><use href="#i-instagram"></use></svg>Instagram Reel</button>
+        <button type="button" class="source-chip" data-source="youtube" disabled title="Not connected yet"><svg class="icon"><use href="#i-youtube"></use></svg>YouTube Video</button>
+        <button type="button" class="source-chip" data-source="reddit" disabled title="Not connected yet"><svg class="icon"><use href="#i-reddit"></use></svg>Reddit Post</button>
+        <button type="button" class="source-chip" data-source="url"><svg class="icon"><use href="#i-link"></use></svg>URL</button>
+        <button type="button" class="source-chip" data-source="document"><svg class="icon"><use href="#i-doc"></use></svg>Document</button>
+      </div>
+      <div class="research-row"><svg class="icon research-icon"><use href="#i-link"></use></svg><textarea id="links" rows="2" placeholder="Paste an Instagram link (up to three)…" aria-label="Public Instagram links"></textarea><button id="add-links" class="btn-primary"><svg class="icon"><use href="#i-play"></use></svg>Analyze</button></div>
+      <div class="research-meta"><label class="select-label" for="manual-collection">Collection</label><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><p id="links-feedback" class="link-feedback" role="status" aria-live="polite"></p></div>
+      <p class="source-note" id="source-note">Instagram links are live. YouTube and Reddit are not connected yet.</p>
+      <details class="advanced-import"><summary>Import a saved export or connect Instagram</summary>
+        <h3>Import saved posts</h3><p>Choose both saved-post and saved-collection JSON or HTML files from your extracted Instagram export. Reimporting keeps earlier work and skips duplicates.</p>
+        <div class="import-row"><input id="files" type="file" accept=".html,.htm,.json" multiple aria-label="Saved-post and collection export files"><button id="import" class="btn-ghost">Import export files</button></div>
+        <h3>Instagram sign-in</h3><p id="instagram-status">Checking browser…</p>
+        <div class="signin-row"><button id="instagram-connect">Open Instagram sign-in</button><button id="instagram-confirm" class="btn-ghost">I signed in</button></div>
+        <p class="hint">Sign in yourself in the separate Research Agent browser, then close it before processing. Personafy's profile is never used.</p>
+      </details>
+    </section>
+    <section class="panel pipeline-panel" aria-labelledby="pipeline-heading">
+      <header class="panel-head"><span class="panel-icon"><svg class="icon"><use href="#i-activity"></use></svg></span><h2 id="pipeline-heading">Research Pipeline</h2><span id="pipeline-state" class="mini-pill">Idle</span></header>
+      <ol id="pipeline-stages" class="pipeline-list"></ol>
+      <p class="pipeline-note">Live counts from this library. Each stage runs locally when you start a batch.</p>
+    </section>
+  </div>
+  <aside class="panel activity-panel" aria-labelledby="activity-heading">
+    <header class="panel-head"><span class="panel-icon"><svg class="icon"><use href="#i-activity"></use></svg></span><h2 id="activity-heading">Research Activity</h2><span id="activity-live" class="live-pill"><i></i><span>Idle</span></span></header>
+    <div id="activity-body" class="activity-body" aria-live="polite"></div>
+  </aside>
+</div>
+<div class="command-row">
+  <section class="panel projects-panel" aria-labelledby="home-projects-heading">
+    <header class="panel-head"><span class="panel-icon"><svg class="icon"><use href="#i-grid"></use></svg></span><h2 id="home-projects-heading">Your Projects</h2><a href="#project-ideas" class="text-link">Manage <svg class="icon"><use href="#i-arrow-right"></use></svg></a></header>
+    <div id="home-projects" class="home-projects"></div>
+  </section>
+  <section class="panel recent-panel" aria-labelledby="home-recent-heading">
+    <header class="panel-head"><span class="panel-icon"><svg class="icon"><use href="#i-search"></use></svg></span><h2 id="home-recent-heading">Recent Research</h2><a href="#research-results" class="text-link">View all <svg class="icon"><use href="#i-arrow-right"></use></svg></a></header>
+    <div id="home-recent" class="home-recent"></div>
+  </section>
+  <section class="panel idea-panel" aria-labelledby="idea-generator-heading">
+    <header class="panel-head"><span class="panel-icon"><svg class="icon"><use href="#i-bulb"></use></svg></span><h2 id="idea-generator-heading">Idea Generator</h2></header>
+    <p class="idea-copy">Turn research into action.</p>
+    <p class="idea-big"><strong id="idea-count">0</strong><span>new ideas waiting</span></p>
+    <button id="home-ideas" class="btn-primary" type="button">Generate ideas <svg class="icon"><use href="#i-spark"></use></svg></button>
+    <p class="hint">Browsing ideas is free. Combining saved results asks for a cost confirmation first.</p>
+  </section>
+</div>
+</section>
+
+<section id="idea-map" class="workspace-section knowledge-section" aria-labelledby="map-heading" hidden>
+<div class="section-head"><div><h2 id="map-heading">Knowledge Web</h2><p>Projects are spheres, videos are lights, and bright lines show ideas used together. Click a project to look closer.</p></div><div class="section-stats" id="knowledge-stats" aria-label="Knowledge web totals"></div></div>
+<div class="map-tools"><button id="map-connect" class="secondary" aria-pressed="false">Connect ideas</button><button id="map-clear" class="secondary">Clear selection</button><label for="map-project">Plan for project</label><select id="map-project"></select><button id="map-combine" disabled>Combine these</button></div><p id="map-selection" role="status">Choose Connect ideas, then click dots or drag between them.</p><p class="small">Connecting changes only this view. Combine these always shows a cost confirmation before any paid call.</p><div class="hologram-options"><label><input id="map-simple" type="checkbox"> Simple 2D view</label><button id="map-reset" class="secondary">Show all projects</button><span id="hologram-status" role="status">Loading 3D view…</span></div><div id="hologram-stage"><div id="hologram-tooltip" hidden></div><div id="hologram-legend" aria-label="Project colors"></div><span class="hologram-hint">Drag to rotate · scroll to zoom · click a project to look closer</span></div><details class="hologram-accessible"><summary>Open or connect a video by title</summary><div id="hologram-video-list"></div></details><div class="map-scroll"><svg id="idea-map-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+</section>
+
+<section id="my-library" class="workspace-section" aria-labelledby="library-heading" hidden>
+<div class="section-head"><div><p class="eyebrow">01 / COLLECT</p><h2 id="library-heading">My Library</h2><p>Posts left to do. Finished summaries appear in Research results.</p></div><a class="text-link" href="#home">Import on Home <svg class="icon"><use href="#i-arrow-right"></use></svg></a></div>
 <div class="stats" id="stats" aria-label="Processing totals"></div><details class="panel" open><summary>Library charts</summary><div class="library-charts"><section id="chart-collections"></section><section id="chart-progress"></section><section id="chart-spending"></section><section><h3>Wishlist price history</h3><p>Space for price trends. Individual price histories remain in Wishlist.</p></section></div></details>
 <section id="library-post-detail" class="panel post-detail" aria-labelledby="post-detail-heading" tabindex="-1" hidden><button id="close-post-detail" class="secondary">Close details</button><h3 id="post-detail-heading"></h3><dl id="post-detail-facts"></dl><a id="post-detail-original" target="_blank" rel="noopener noreferrer">Open original Instagram post</a><div id="post-run-controls" hidden><button id="run-post-now">Run now</button><p id="post-run-note" class="small"></p><div id="single-run-confirm" class="single-run-confirm" hidden><p id="single-run-estimate"></p><p id="single-run-cost-note" class="small"></p><button id="confirm-post-run">Confirm and run this post</button><button id="cancel-post-run" class="secondary">Cancel</button></div></div><p id="post-run-status" role="status" aria-live="polite"></p></section>
 <section class="panel" aria-labelledby="sync-heading"><h3 id="sync-heading">Auto-sync saved posts</h3><label><input type="checkbox" id="sync-enabled"> Auto-sync saved posts</label><label for="sync-frequency">Check Instagram Saved</label><select id="sync-frequency"><option value="1">Once a day</option><option value="2">Twice a day</option></select><button id="sync-now" class="secondary">Sync now</button><button id="sync-save" class="secondary">Save auto-sync settings</button><p class="small">Off until you turn it on. Uses only the Research Agent sign-in profile while this tool is running. Reads up to 30 posts, stops at the first known post, and never starts analysis.</p><p id="sync-status" role="status"></p><p id="sync-now-result" role="status"></p><details><summary>Check history</summary><div id="sync-history"></div></details></section>
 <section class="panel" aria-labelledby="reference-handoff-heading"><h3 id="reference-handoff-heading">Reference hand-off</h3><label><input id="reference-handoff-enabled" type="checkbox"> Send new reference posts to Personafy</label><button id="reference-handoff-save" class="secondary">Save hand-off setting</button><p class="small">Off until you turn it on. Also enable Auto-sync saved posts above. Copies media to the hand-off folder; it does not import into or change Personafy. Reference posts remain excluded from research. No AI calls.</p><p id="reference-handoff-status" role="status"></p><p id="reference-handoff-folder" class="small"></p><button id="reference-handoff-retry-all" class="secondary">Retry all failed</button><div id="reference-handoff-list"></div></section>
-<details class="panel setup-panel"><summary>Add posts or connect Instagram</summary>
-<h3>Import saved posts</h3><p>Choose both saved-post and saved-collection JSON or HTML files from your extracted Instagram export. Reimporting keeps earlier work and skips duplicates.</p>
-<div class="import-row"><input id="files" type="file" accept=".html,.htm,.json" multiple aria-label="Saved-post and collection export files"><button id="import">Import export files</button></div>
-<label for="links">Or paste up to three public Instagram links</label><textarea id="links" rows="2" placeholder="https://www.instagram.com/reel/…"></textarea>
-<div class="import-row"><select id="manual-collection" aria-label="Collection for pasted links"><option value="">Unassigned</option><option>Pennywise</option><option>Personafy</option><option>Tech</option></select><button id="add-links" class="secondary">Add links</button></div><p id="links-feedback" class="link-feedback" role="status" aria-live="polite"></p>
-<h3>Instagram sign-in</h3><p id="instagram-status">Checking browser…</p><button id="instagram-connect">Open Research Agent Instagram sign-in</button> <button id="instagram-confirm" class="secondary">I signed in and closed the browser</button>
-<p class="small">Sign in yourself in the separate Research Agent browser, then close it before processing. Personafy's profile is never used.</p>
-</details>
 <div class="panel batch-controls"><label for="batch-size">Videos per batch</label><select id="batch-size"><option>3</option><option>5</option><option selected>10</option><option>25</option></select><label for="batch-collection">Collections for next batch</label><p class="small" id="batch-collection-help">Choose one or more collections for the next batch to process. Hold Ctrl (or Command) to choose several.</p><select id="batch-collection" multiple size="4" aria-describedby="batch-collection-help"><option>All</option></select><p class="small">Start processes the selected batch using DeepSeek. No spending cap or separate approval step.</p><button id="start">Start batch</button><button id="pause" class="secondary">Stop after current video</button><section class="next-batch" aria-labelledby="preview-heading"><h3 id="preview-heading">Next batch preview</h3><p id="batch-preview-count" class="small"></p><ol id="batch-preview"></ol></section><div class="money-cards"><section class="money-card" aria-labelledby="balance-heading"><h3 id="balance-heading">DeepSeek balance</h3><p id="deepseek-balance" class="money-value">Not checked</p><div class="money-meta"><span id="balance-updated">Not checked yet</span><button id="refresh-balance" class="secondary">Refresh</button></div><details><summary>Give me more</summary><p id="balance-extra" class="small"></p></details></section><section class="money-card" aria-labelledby="spent-heading"><h3 id="spent-heading">Spent so far</h3><p id="spending-tracker" class="money-value">Not available</p><p id="spending-tiny" class="small" hidden>less than $0.01</p><p id="spending-count" class="small"></p><details><summary>Give me more</summary><p id="spending-extra" class="small"></p></details></section></div></div><div class="toolbar"><p id="queue-state" class="small">Loading…</p><p id="batch-progress" role="status"></p></div>
 <details class="panel exclusion-settings"><summary>Excluded collections</summary><p id="exclusion-totals" class="small"></p><p class="small">Checked collections stay in your library and are skipped, even when posts are saved elsewhere. “Not reference” allows that one post.</p><div id="excluded-options"></div></details><details class="panel skipped-panel"><summary id="skipped-summary">Skipped</summary><p class="small">Excluded collections and text-identified visual references stay here. “Not reference — analyze it” runs one video, or queues it if other work is active.</p><div id="skipped-items"></div></details><details class="panel batch-list" open><summary>Posts from the last run — outcomes</summary><p class="small">These are outcomes from the last run. The next batch preview above is a separate list.</p><ol id="batch-posts"></ol></details><div class="library-layout"><aside class="sidebar"><h3>Browse your library</h3><p class="small">Choose a collection to see its posts that are still left to do.</p><nav id="collections" aria-label="Collection filters"></nav><p class="small">Counts show posts still to do, including earlier imports.</p></aside><div id="library-items"></div></div>
 </section>
-<section id="research-results" class="workspace-section" aria-labelledby="research-heading">
-<p class="eyebrow">02 / UNDERSTAND</p><h2 id="research-heading">Research results</h2><p>What it is, why it may help, and a practical next step. Open “Show more” for the evidence.</p>
+
+<section id="research-results" class="workspace-section" aria-labelledby="research-heading" hidden>
+<div class="section-head"><div><p class="eyebrow">02 / UNDERSTAND</p><h2 id="research-heading">Research Results</h2><p>What it is, why it may help, and a practical next step. Open “Give me more” for the evidence.</p></div></div>
 <p class="small"><a id="project-results-link" href="#project-ideas">Videos matched to a project are in Project ideas (0)</a></p>
 <p class="small"><a id="recipe-results-link" href="#recipes">Recipes are in the Recipes tab (0)</a></p>
 <label for="research-filter">Show results</label><select id="research-filter"><option value="all">All results</option><option value="just-finished">Just finished</option></select><div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. Spending totals are estimates; account balance comes directly from DeepSeek when refreshed.</p></details>
 </section>
-<section id="project-ideas" class="workspace-section" aria-labelledby="ideas-heading">
-<p class="eyebrow">03 / APPLY</p><h2 id="ideas-heading">Project ideas</h2><p>Suggestions for your projects. Nothing here changes those projects.</p><section class="my-projects" aria-label="Project cards"><details><summary>Add project</summary><form id="project-add"><label for="project-name">Project name</label><input id="project-name" required maxlength="80"><label for="project-description">What is this project, and what ideas should match?</label><textarea id="project-description" required maxlength="3000" rows="3"></textarea><button type="submit">Add project</button></form></details><div id="my-project-list"></div><div id="recheck-review" hidden><p id="recheck-summary"></p><button id="recheck-confirm">Confirm re-check</button><button id="recheck-cancel" class="secondary">Cancel</button></div><p id="recheck-status" role="status"></p></section>
-<div id="combine-review" class="panel" hidden><p id="combine-summary"></p><button id="combine-confirm">Confirm combine</button><button id="combine-cancel" class="secondary">Cancel</button></div><p id="combine-status" role="status"></p><div class="panel ideas-panel"><h3>New ideas</h3><p>Useful ideas without a supported project match stay here.</p><div id="new-ideas"></div></div>
+
+<section id="project-ideas" class="workspace-section" aria-labelledby="ideas-heading" hidden>
+<div class="section-head"><div><p class="eyebrow">03 / APPLY</p><h2 id="ideas-heading">Project Ideas</h2><p>Suggestions for your projects. Nothing here changes those projects.</p></div><a class="text-link" href="#ideas">New ideas <svg class="icon"><use href="#i-arrow-right"></use></svg></a></div>
+<section class="my-projects" aria-label="Project cards"><details><summary>Add project</summary><form id="project-add"><label for="project-name">Project name</label><input id="project-name" required maxlength="80"><label for="project-description">What is this project, and what ideas should match?</label><textarea id="project-description" required maxlength="3000" rows="3"></textarea><button type="submit">Add project</button></form></details><div id="my-project-list"></div><div id="recheck-review" hidden><p id="recheck-summary"></p><button id="recheck-confirm">Confirm re-check</button><button id="recheck-cancel" class="secondary">Cancel</button></div><p id="recheck-status" role="status"></p></section>
+<div id="combine-review" class="panel" hidden><p id="combine-summary"></p><button id="combine-confirm">Confirm combine</button><button id="combine-cancel" class="secondary">Cancel</button></div><p id="combine-status" role="status"></p>
 </section>
-<section id="recipes" class="workspace-section" aria-labelledby="recipes-heading">
-<p class="eyebrow">04 / COOK</p><h2 id="recipes-heading">Recipes</h2><p>Saved ingredients and steps from food posts. Missing details stay missing.</p><p id="recipe-count" class="small"></p>
+
+<section id="ideas" class="workspace-section" aria-labelledby="ideas-page-heading" hidden>
+<div class="section-head"><div><p class="eyebrow">04 / IDEATE</p><h2 id="ideas-page-heading">Ideas</h2><p>Everything useful that does not fit a project yet, plus a free way to turn saved research into next steps.</p></div><a class="text-link" href="#project-ideas">Open projects <svg class="icon"><use href="#i-arrow-right"></use></svg></a></div>
+<div class="ideas-layout">
+  <section class="panel generator-panel" aria-labelledby="generator-heading"><span class="panel-icon"><svg class="icon"><use href="#i-spark"></use></svg></span><h3 id="generator-heading">Idea Generator</h3><p>Saved results already contain project suggestions. Browse them for free, or combine two or more results into a plan when you are ready.</p><ol class="generator-steps"><li>Read a saved result in Research.</li><li>Move it to a project, or leave it in New ideas.</li><li>Combine results for a project with a cost preview first.</li></ol><a href="#project-ideas" class="btn-primary">Open project ideas <svg class="icon"><use href="#i-arrow-right"></use></svg></a><p class="hint">Generating a new paid plan needs an explicit confirmation. No button here spends money.</p></section>
+  <section class="panel ideas-panel" aria-labelledby="new-ideas-heading"><h3 id="new-ideas-heading">New ideas</h3><p>Useful ideas without a supported project match stay here.</p><div id="new-ideas"></div></section>
+</div>
+</section>
+
+<section id="recipes" class="workspace-section" aria-labelledby="recipes-heading" hidden>
+<div class="section-head"><div><p class="eyebrow">05 / COOK</p><h2 id="recipes-heading">Recipes</h2><p>Saved ingredients and steps from food posts. Missing details stay missing.</p></div><p id="recipe-count" class="small"></p></div>
 <div class="recipes-layout"><div id="recipe-list"></div><aside class="panel grocery-panel" aria-labelledby="grocery-heading"><h3 id="grocery-heading">Grocery list</h3><p>Check recipes to combine their ingredients. Only matching ingredients and units are added together.</p><p class="small">Different units and unclear amounts stay separate. Selections and shopping checkmarks are saved in this browser.</p><p id="grocery-count" class="small"></p><button id="copy-groceries" class="secondary" disabled>Copy list</button><p id="grocery-status" role="status" aria-live="polite"></p><div id="grocery-items"></div></aside></div>
 </section>
-<section id="wishlist" class="workspace-section" aria-labelledby="wishlist-heading"><p class="eyebrow">05 / WATCH PRICES</p><h2 id="wishlist-heading">Wishlist</h2><p>Posts from “shit I want to buy.” Search for shopping matches, then track only the ones you pick.</p><p id="wishlist-cost">Each find-the-item search uses your free Brave monthly credit ($0.00) and asks for confirmation first. Daily price checks cost $0.00.</p><p class="small">Tracked prices are checked at most once a day while Research Agent is open. Shipping and tax may be extra. Amazon and some stores cannot be checked automatically.</p><div id="wishlist-list"></div></section>
-<footer>Videos, recordings, audio and analysis frames are temporary. Your library keeps text findings, sources and one small preview image per processed video. Claims remain NOT VERIFIED until checked independently.</footer>
-</main></body></html>
+
+<section id="wishlist" class="workspace-section" aria-labelledby="wishlist-heading" hidden>
+<div class="section-head"><div><p class="eyebrow">06 / WATCH PRICES</p><h2 id="wishlist-heading">Wishlist</h2><p>Posts from “shit I want to buy.” Search for shopping matches, then track only the ones you pick.</p><p id="wishlist-cost">Each find-the-item search uses your free Brave monthly credit ($0.00) and asks for confirmation first. Daily price checks cost $0.00.</p></div></div>
+<p class="small">Tracked prices are checked at most once a day while Research Agent is open. Shipping and tax may be extra. Amazon and some stores cannot be checked automatically.</p><div id="wishlist-list"></div>
+</section>
+
+<section id="settings" class="workspace-section" aria-labelledby="settings-heading" hidden>
+<div class="section-head"><div><h2 id="settings-heading">Settings</h2><p>Read-only status for this local workspace. Secrets stay in the server environment and are never shown here.</p></div></div>
+<div class="settings-grid">
+  <section class="panel settings-card" aria-labelledby="settings-research-heading"><h3 id="settings-research-heading">Research provider</h3><dl class="settings-list"><dt>Provider</dt><dd id="settings-provider">…</dd><dt>Balance</dt><dd id="settings-balance">…</dd><dt>Estimated spend</dt><dd id="settings-spent">…</dd><dt>Queue</dt><dd id="settings-queue">…</dd></dl><a class="text-link" href="#my-library">Open batch controls <svg class="icon"><use href="#i-arrow-right"></use></svg></a></section>
+  <section class="panel settings-card" aria-labelledby="settings-connect-heading"><h3 id="settings-connect-heading">Connections</h3><dl class="settings-list"><dt>Instagram browser</dt><dd id="settings-instagram">…</dd><dt>CoachLab</dt><dd id="settings-coachlab">…</dd><dt>Brave search</dt><dd id="settings-brave">…</dd></dl><a class="text-link" href="#home">Manage sign-in on Home <svg class="icon"><use href="#i-arrow-right"></use></svg></a></section>
+  <section class="panel settings-card" aria-labelledby="settings-automation-heading"><h3 id="settings-automation-heading">Automation</h3><dl class="settings-list"><dt>Auto-sync saved posts</dt><dd id="settings-sync">…</dd><dt>Reference hand-off</dt><dd id="settings-handoff">…</dd></dl><a class="text-link" href="#my-library">Open automation settings <svg class="icon"><use href="#i-arrow-right"></use></svg></a></section>
+  <section class="panel settings-card" aria-labelledby="settings-privacy-heading"><h3 id="settings-privacy-heading">Data &amp; privacy</h3><p>Research notes stay in this local SQLite library (<code>.research-data/library.sqlite</code>). The dashboard only listens on this machine. Temporary videos, audio and frames are removed after processing.</p><p class="small">No account is required. Nothing here changes another project.</p></section>
+</div>
+</section>
+
+<dialog id="full-result"><button id="close-full-result" class="secondary">Close result</button><div id="full-result-content"></div></dialog>
+<footer><p><strong>Research Library</strong> · local-only research workspace. Videos, recordings, audio and analysis frames are temporary. Your library keeps text findings, sources and one small preview image per processed video.</p><p>Claims remain NOT VERIFIED until checked independently. Research notes are suggestions, not verified facts.</p></footer>
+</main>
+</div>
+</div>
+</body></html>
