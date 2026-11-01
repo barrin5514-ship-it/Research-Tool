@@ -25,3 +25,10 @@ test('inactive approval, oversized input and exhausted dollar budget never send 
  await writeFile(file,JSON.stringify({active:true,requests:[],videos:[{id:'new',url:'https://www.instagram.com/p/new/'}]}));body.messages[1].content=JSON.stringify({sourceUrl:'https://www.instagram.com/p/new/',padding:'x'.repeat(40000)});await assert.rejects(request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)}));assert.equal(calls,0);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('apply-plan requests use the bounded extra calls for the same video',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'research-budget-')),file=join(dir,'budget.json');let calls=0;
+ const request=budgetedFetch(file,async()=>{calls++;return Response.json({ok:true});});
+ const body={model:'deepseek-flash',max_tokens:900,messages:[{},{content:JSON.stringify({videoId:'new'})}]};
+ try{await writeFile(file,JSON.stringify({active:true,maxCalls:5,videos:[{id:'new',url:'https://www.instagram.com/p/new/'}],requests:[]}));const response=await request(DEEPSEEK_ENDPOINT,{body:JSON.stringify(body)});assert.equal(response.status,200);assert.equal(calls,1);assert.equal(JSON.parse(await readFile(file)).requests[0].id,'new');}finally{await rm(dir,{recursive:true,force:true});}
+});

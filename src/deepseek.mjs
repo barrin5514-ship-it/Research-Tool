@@ -1,6 +1,8 @@
 import {INPUT_LIMITS,INSUFFICIENT_CONTENT_REASON,prepareResearchInput} from '../public/input-limits.mjs';
 import {normalizeRecipe} from '../public/answer-format.mjs';
 import {PROJECT_CONTEXT,normalizeResearch} from './research.mjs';
+import {applyPayload,normalizeApplyPlan,APPLY_MAX_USD} from './apply-plan-core.mjs';
+import {projectFileSummary} from './project-files.mjs';
 import {readFile} from 'node:fs/promises';
 export const DEEPSEEK_ENDPOINT='https://api.deepseek.com/chat/completions';
 // Peak rates, USD per million tokens; conservative estimate checked 2026-10-24.
@@ -22,7 +24,39 @@ function projectContextOf(projects){
     return [p.name,text];
   }));
 }
-export function createDeepSeekResearch({apiKey,approved=false,fetcher=fetch,onUsage=async()=>{},onInputLog=message=>console.info(message),getProjects=()=>PROJECT_CONTEXT,retryOnInvalid=false}={}){
+export const AUTO_APPLY_MAX_PER_POST = 3;
+// One bounded extra call per matched idea, immediately after the research call.
+async function autoApplyPlansFor({projects,job,result,apiKey,fetcher,onUsage,hasApplyPlan,applyFiles,signal,maxCalls=3}){
+  const plans=[],warnings=[];
+  const candidates=(result.recommendations||[]).filter(r=>r.projectId&&!r.alreadyHave).slice(0,Math.max(1,maxCalls));
+  for(const rec of candidates){
+    if(hasApplyPlan(rec.projectId,job.id))continue;
+    const project=projects.find(p=>p.id===rec.projectId);
+    if(!project)continue;
+    try{
+      const fileSummary=await applyFiles(project.name);
+      const profile=project.profile||{};
+      const payload=applyPayload({project:{name:project.name,what:profile.what||project.description||'',uses:profile.uses||''},idea:rec.application,sourceSummary:result.summary||'',files:fileSummary.files,videoId:job.id});
+      const bytes=Buffer.byteLength(JSON.stringify(payload));
+      if((bytes+2048)*DEEPSEEK_RATES.input/1e6+payload.max_tokens*DEEPSEEK_RATES.output/1e6>APPLY_MAX_USD)continue;
+      const response=await fetcher(DEEPSEEK_ENDPOINT,{method:'POST',redirect:'error',signal:AbortSignal.any([signal||new AbortController().signal,AbortSignal.timeout(90000)]),headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},body:JSON.stringify(payload)});
+      if(!response.ok||response.redirected){await response.body?.cancel().catch(()=>{});throw Error('DeepSeek rejected the apply plan');}
+      const reader=response.body.getReader(),chunks=[];let length=0;
+      try{for(;;){const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>200000)throw Error('Apply plan response too large');chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}
+      const body=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      const usage=estimateDeepSeekCost(body.usage);
+      await onUsage({kind:'project-apply',videoId:job.id,at:new Date().toISOString(),model:'deepseek-flash',usage,responseContent:body.choices?.[0]?.message?.content??null});
+      const raw=JSON.parse(body.choices?.[0]?.message?.content);
+      const normalized=normalizeApplyPlan(raw);
+      if(normalized.alreadyHave)continue;
+      plans.push({projectId:project.id,plan:{...normalized,project:project.name,idea:rec.application},usage});
+    }catch(error){
+      warnings.push((project.name+': '+(error.message||'apply plan failed')).slice(0,180));
+    }
+  }
+  return {plans,warnings};
+}
+export function createDeepSeekResearch({apiKey,approved=false,fetcher=fetch,onUsage=async()=>{},onInputLog=message=>console.info(message),getProjects=()=>PROJECT_CONTEXT,retryOnInvalid=false,autoApplyPlans=false,hasApplyPlan=()=>false,applyFiles=projectFileSummary}={}){
  return async({job,transcript,ocr=[],frames=[],signal})=>{
   const input=prepareResearchInput({job,transcript,ocr});for(const warning of input.warnings)onInputLog(warning);
   // A "silent" post has too little speech or on-screen text to analyze as text. When it has
@@ -56,6 +90,11 @@ export function createDeepSeekResearch({apiKey,approved=false,fetcher=fetch,onUs
   result.inputWarnings=input.warnings;result.transcript=transcript||null;result.visualFindings=[];result.usage=usage;
   result.provenance.provider='deepseek';result.researchStatus='requires_verification';
   result.limitations=[silent?'Frame-based analysis of sampled images; only visible moves are described.':'Text-only analysis of transcript and OCR; no images sent.','Claims and cost estimates require independent verification.'];
+  if(autoApplyPlans&&!skip&&Array.isArray(result.recommendations)&&result.recommendations.length){
+    const automatic=await autoApplyPlansFor({projects,job,result,apiKey,fetcher,onUsage,hasApplyPlan,applyFiles,signal});
+    result.autoApplyPlans=automatic.plans;
+    if(automatic.warnings.length)result.autoApplyWarnings=automatic.warnings;
+  }
   return result;
   }
  };

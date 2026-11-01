@@ -124,6 +124,13 @@ export class LibraryStore {
     });
   }
   finish(id, { status, result }, now = Date.now()) {
+    // Automatic analysis leaves one apply plan per matched idea; save it before the result row.
+    if (Array.isArray(result?.autoApplyPlans)) {
+      for (const item of result.autoApplyPlans) {
+        if (item?.projectId && item?.plan && !item.plan.alreadyHave) this.saveApplyPlan({ projectId: item.projectId, videoId: id, plan: item.plan, usage: item.usage || null, at: now });
+      }
+      delete result.autoApplyPlans;
+    }
     if(result?.skipReason==='visual_reference')this.db.prepare('INSERT OR IGNORE INTO reference_history VALUES(?,?,?)').run(id,this.db.prepare('SELECT result_json FROM videos WHERE id=?').get(id)?.result_json||null,now);
     if (!['needs_analysis', 'completed', 'skipped', 'failed'].includes(status)) throw new Error('Invalid processing result');
     if (status === 'completed' && (!result?.summary || !result?.provenance)) throw new Error('Completed research requires summary and provenance');
