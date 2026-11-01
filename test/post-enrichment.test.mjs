@@ -53,6 +53,25 @@ test('enrichPosts updates title and thumbnail from the signed-in browser', async
   assert.equal((await readdir(thumbnailRoot)).filter((name) => name.endsWith('.jpg')).length, 1);
 });
 
+test('no real caption uses the account fallback title and keeps the description out of it', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'enrich-fallback-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const jpeg = await jpegFixture(root);
+  const store = new LibraryStore(':memory:');
+  t.after(() => store.close());
+  store.import([{ shortcode: 'NoCaption1', url: 'https://www.instagram.com/p/NoCaption1/', title: 'Instagram post', collections: [] }]);
+  const result = await enrichPosts({
+    store,
+    thumbnailRoot: join(root, 'thumbs'),
+    ids: ['NoCaption1'],
+    delayMs: 0,
+    wait: async () => {},
+    browser: { async postPreview() { return { caption: '9,337 likes, 215 comments - rawred on September 11, 2026:', username: 'rawred', thumbnailBase64: jpeg.toString('base64') }; } },
+    prepareThumbnail: async () => jpeg,
+  });
+  assert.equal(result.done, 1);
+  assert.equal(store.get('NoCaption1').title, 'Instagram post from @rawred');
+});
 test('enrichPosts stops on the first warning and keeps the rest untouched', async (t) => {
   const store = new LibraryStore(':memory:');
   t.after(() => store.close());

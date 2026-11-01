@@ -903,3 +903,9 @@ html[data-theme="dark"] button:disabled {
 .apply-plan .notice { color: #ffd479; }
 .apply-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; background: rgba(0, 0, 0, .28); border-radius: 8px; padding: 8px; font-size: 11px; }
 .apply-feedback { min-height: 1em; }
+
+/* Research result selector and the two send choices. */
+.research-send-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.research-send-tools label { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #c3cbe8; }
+.research-pick-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.research-open { font-size: 10.5px; color: #9fd8ff; }

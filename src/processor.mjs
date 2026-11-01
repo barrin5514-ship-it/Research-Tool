@@ -1,4 +1,5 @@
 import {saveThumbnail} from './thumbnails.mjs';
+import {captionText,usernameFromMeta} from './post-enrichment.mjs';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
@@ -364,6 +365,10 @@ export async function processVideo(job, {
   const retainedRoot = await safeWorkspacePath(path.join(path.dirname(root), 'retained-media'), { create: true });
   const retainedDir = path.join(retainedRoot, String(job.id).replace(/[^A-Za-z0-9_-]/g, '_'));
   let keepMedia = true;
+  let pageCaption = '';
+  let pageUsername = '';
+  let metadataRead = false;
+  let coverSaved = false;
   try {
     await writeFile(path.join(attempt, OWNER_FILE), JSON.stringify(owner), { flag: 'wx' });
     let input = path.join(attempt, 'input.mp4');
@@ -409,17 +414,20 @@ export async function processVideo(job, {
         return { status: 'skipped', result };
       }
       bytes = downloaded.bytes;
-      // Best effort: fill a real title and caption now that the post has been reached,
-      // instead of leaving the "Instagram post"/"Instagram video" placeholder. The post is
-      // opened during processing only; sync never opens extra pages for this.
-      if(readMetadata && /^Instagram (?:video|post)$/i.test(String(job.title||'').trim())){
+      // Read the post page before analysis so the real caption wins over a visual description.
+      // The cover image is saved now; a non-black ~2-second frame is only the fallback.
+      if(readMetadata && !fixturePath){
         try{
           const metadata=await readMetadata(job.url ?? job.sourceUrl);
-          const caption=typeof metadata?.caption==='string'?metadata.caption.trim().slice(0,12000):'';
-          const pageTitle=typeof metadata?.pageTitle==='string'?metadata.pageTitle.trim().slice(0,200):'';
-          if(caption){job.title=caption;result.caption=caption;result.title=caption.slice(0,200);}
-          else if(pageTitle&&!/^instagram$/i.test(pageTitle)){result.title=pageTitle;}
-        }catch{ /* keep the placeholder when the page cannot be read safely */ }
+          metadataRead=true;
+          pageCaption=captionText(metadata?.caption||'');
+          pageUsername=usernameFromMeta(metadata,metadata?.caption||'');
+          if(pageCaption){job.title=pageCaption;result.caption=pageCaption;result.title=pageCaption.slice(0,200);}
+          else if(pageUsername){result.title='Instagram post from @'+pageUsername;}
+          if(metadata?.thumbnailBase64 && thumbnailRoot){
+            try{result.thumbnail=await saveThumbnail(thumbnailRoot,job.id,Buffer.from(metadata.thumbnailBase64,'base64'));coverSaved=true;}catch{}
+          }
+        }catch{ /* leave DeepSeek's title when the page cannot be read safely */ }
       }
     }
     // MediaRecorder's streaming WebM often has no duration header. Remux it
@@ -467,7 +475,12 @@ export async function processVideo(job, {
       frames.push({ path: framePath, timeSeconds });
     }
     result.extraction.framesExtracted = frames.length;
-    if(thumbnailRoot&&frames.length&&!fixturePath){try{result.thumbnail=await retainFrameThumbnail({thumbnailRoot,attempt,framePath:frames[0].path,id:job.id,ffmpeg,signal:attemptSignal});}catch{interruption(attemptSignal);result.extraction.warnings.push('A thumbnail could not be saved; a placeholder is shown.');}}
+    if(thumbnailRoot&&!coverSaved&&!fixturePath){
+      try{
+        const frame=await pickThumbnailFrame({input,attempt,frames,duration,ffmpeg,signal:attemptSignal});
+        if(frame)result.thumbnail=await retainFrameThumbnail({thumbnailRoot,attempt,framePath:frame,id:job.id,ffmpeg,signal:attemptSignal});
+      }catch{interruption(attemptSignal);result.extraction.warnings.push('A usable thumbnail could not be saved; No preview is shown.');}
+    }
 
     let audioPath;
     if (result.extraction.hasAudio && (analyze || nativeExtract)) {
@@ -524,6 +537,7 @@ export async function processVideo(job, {
     for (const field of ['summary', 'transcript', 'title']) {
       if (typeof analyzed[field] === 'string') result[field] = analyzed[field].slice(0, 40_000);
     }
+    if (metadataRead) result.title = pageCaption || (pageUsername ? 'Instagram post from @' + pageUsername : 'Instagram post');
     for (const field of ['visualFindings', 'claims', 'recommendations']) {
       if (Array.isArray(analyzed[field])) result[field] = analyzed[field].slice(0, 100);
     }
@@ -582,4 +596,22 @@ export async function processVideo(job, {
   }
 }
 
+async function nearlyBlack(path,ffmpeg,signal){
+  try{
+    const {stdout}=await command(ffmpeg,['-v','error','-i',path,'-vf','signalstats,metadata=print:file=-','-f','null','-'],signal);
+    const match=stdout.match(/YAVG=([\d.]+)/);
+    return Boolean(match&&Number(match[1])<24);
+  }catch{return true;}
+}
+async function pickThumbnailFrame({input,attempt,frames,duration,ffmpeg,signal}){
+  const target=Math.min(2,Math.max(0.2,duration/2));
+  const candidate=path.join(attempt,'thumbnail-source.jpg');
+  try{
+    await command(ffmpeg,['-nostdin','-hide_banner','-loglevel','error','-ss',String(target.toFixed(3)),'-i',input,'-an','-sn','-dn','-frames:v','1','-vf',"scale='min(640,iw)':'min(640,ih)':force_original_aspect_ratio=decrease",'-q:v','4','-y',candidate],signal);
+    if(!(await nearlyBlack(candidate,ffmpeg,signal)))return candidate;
+  }catch{}
+  const ordered=[...frames].sort((a,b)=>Math.abs(a.timeSeconds-2)-Math.abs(b.timeSeconds-2));
+  for(const frame of ordered){if(!(await nearlyBlack(frame.path,ffmpeg,signal)))return frame.path;}
+  return null;
+}
 export async function retainFrameThumbnail({thumbnailRoot,attempt,framePath,id,ffmpeg='ffmpeg',signal}){const retainedRoot=await safeWorkspacePath(thumbnailRoot,{create:true});const small=path.join(attempt,'thumbnail.jpg');await command(ffmpeg,['-nostdin','-hide_banner','-loglevel','error','-protocol_whitelist','file','-i',framePath,'-frames:v','1','-vf',"scale=320:320:force_original_aspect_ratio=decrease",'-q:v','5','-threads','1','-y',small],signal);return saveThumbnail(retainedRoot,id,await readFile(small));}

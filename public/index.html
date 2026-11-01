@@ -140,6 +140,7 @@
   <p class="small">Pick saved posts for Personafy's media library. Media is copied into the same hand-off folder and format. This does not analyze the post or change Personafy's code.</p>
   <label class="personafy-selectall"><input id="personafy-select-all" type="checkbox"> Select all</label>
   <button id="personafy-load-meta" class="secondary" type="button">Load missing captions &amp; thumbnails</button>
+  <button id="personafy-refresh-preview" class="secondary" type="button">Re-fix existing thumbnails</button>
   <p id="personafy-meta-status" class="small" role="status"></p>
   <div id="personafy-pick-list" class="personafy-pick-list"></div>
   <button id="personafy-send-selected">Send selected to Personafy</button>
@@ -158,7 +159,8 @@
 <div class="section-head"><div><p class="eyebrow">02 / UNDERSTAND</p><h2 id="research-heading">Research Results</h2><p>What it is, why it may help, and a practical next step. Open “Give me more” for the evidence.</p></div></div>
 <p class="small"><a id="project-results-link" href="#project-ideas">Videos matched to a project are in Project ideas (0)</a></p>
 <p class="small"><a id="recipe-results-link" href="#recipes">Recipes are in the Recipes tab (0)</a></p>
-<label for="research-filter">Show results</label><select id="research-filter"><option value="all">All results</option><option value="just-finished">Just finished</option></select><div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. Spending totals are estimates; account balance comes directly from DeepSeek when refreshed.</p></details>
+<label for="research-filter">Show results</label><select id="research-filter"><option value="all">All results</option><option value="just-finished">Just finished</option></select>
+<div class="research-send-tools" aria-label="Send selected research results"><label><input id="research-select-all" type="checkbox"> Select all</label><button id="research-personafy-send" class="secondary" type="button">Send selected to Personafy</button><button id="research-coachlab-send" class="secondary" type="button">Send selected to CoachLab</button><p id="research-send-status" class="small" role="status"></p></div><div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. Spending totals are estimates; account balance comes directly from DeepSeek when refreshed.</p></details>
 </section>
 
 <section id="project-ideas" class="workspace-section" aria-labelledby="ideas-heading" hidden>

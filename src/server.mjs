@@ -108,7 +108,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
         if(queue.running||queue.active.size||sync.running||wishlist.running||referenceHandoff.running||batches?.starting)throw Error('Wait for the current work to finish before loading captions.');
         const ids=Array.isArray(body.ids)?body.ids.filter(id=>typeof id==='string').slice(0,20):null;
         enrichment.running=true;enrichment.done=0;enrichment.total=0;enrichment.stopped=null;enrichment.message='Loading captions and thumbnails slowly, one post at a time…';
-        enrichPosts({store,browser:browserSession,thumbnailRoot,ids,onProgress:progress=>{enrichment.done=progress.done;enrichment.total=progress.total;}})
+        enrichPosts({store,browser:browserSession,thumbnailRoot,ids,repair:body.repair===true,onProgress:progress=>{enrichment.done=progress.done;enrichment.total=progress.total;}})
           .then(result=>{enrichment.done=result.done;enrichment.total=result.total;enrichment.stopped=result.stopped;enrichment.message=result.message;})
           .catch(error=>{enrichment.stopped=error.message;enrichment.message=error.message;})
           .finally(()=>{enrichment.running=false;});
@@ -209,7 +209,7 @@ export async function start() {
     const nativeExtract = nativeExtractionEnabled ? createWindowsExtraction() : undefined;
     await cleanupStaleAttempts(join(data,'scratch'));
     store = new LibraryStore(join(data,'library.sqlite')); store.recover();
-    queue = new ResearchQueue(store,(job,signal)=>store.isExcluded(store.get(job.id))?Promise.resolve({status:'skipped',result:{...(job.result||{}),summary:job.result?.summary||'Skipped: excluded collection',skipReason:'excluded_collection'}}):processVideo(job,{scratchRoot:join(data,'scratch'),thumbnailRoot:join(data,'thumbnails'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire,readMetadata:url=>browserSession.referenceMetadata(url)}),{concurrency,minIntervalMs:20_000});
+    queue = new ResearchQueue(store,(job,signal)=>store.isExcluded(store.get(job.id))?Promise.resolve({status:'skipped',result:{...(job.result||{}),summary:job.result?.summary||'Skipped: excluded collection',skipReason:'excluded_collection'}}):processVideo(job,{scratchRoot:join(data,'scratch'),thumbnailRoot:join(data,'thumbnails'),cobaltUrl:'http://127.0.0.1:9100',signal,analyze,extract,nativeExtract,acquireFallback:browserSession.acquire,readMetadata:url=>browserSession.postPreview(url)}),{concurrency,minIntervalMs:20_000});
     batches=new BatchController({store,queue,dataRoot:join(data,'batches'),apiKey:process.env.DEEPSEEK_API_KEY,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const rechecks=new ProjectRechecks({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches.starting,onUsage:record=>recordUsage(USAGE_FILE,record)});
     const combinations=new ProjectCombinations({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches.starting||rechecks.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
