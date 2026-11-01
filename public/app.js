@@ -236,6 +236,43 @@ function renderSkipped(videos,excluded){
  if(!skipped.length)$('skipped-items').append(el('p','No skipped posts.','small'));if(skipped.length>skippedLimit){const more=el('button','Show 10 more skipped posts','secondary');more.onclick=()=>{skippedLimit+=10;render();};$('skipped-items').append(more);}
 }
 let renderedProjects='';
+const applyMessages=new Map();
+function savedApplyPlan(projectId,videoId){return (state.applyPlans||[]).find(item=>item.projectId===projectId&&item.videoId===videoId)?.plan||null;}
+function applyPlanCard(plan){
+  const box=el('div',undefined,'apply-plan');
+  box.append(el('h4','Apply plan'),el('p',plan.changes),el('p',plan.touches,'small'),el('p','Effort: '+plan.effort,'small'));
+  if(plan.alreadyHave)box.append(el('p','Already have this.'+(plan.alreadyHaveReason?' '+plan.alreadyHaveReason:''),'notice'));
+  const prompt=el('pre',plan.buildPrompt,'apply-prompt');
+  const copy=el('button','Copy build prompt','secondary');
+  copy.onclick=()=>{navigator.clipboard?.writeText(plan.buildPrompt).then(()=>copy.textContent='Copied').catch(()=>copy.textContent='Select the prompt and copy it');};
+  box.append(el('p','Build prompt', 'small'),prompt,copy,el('p','Saved with this idea. No new DeepSeek call was made.','small'));
+  return box;
+}
+function renderApply(project,video){
+  const wrap=el('div',undefined,'apply-box');
+  const key=project.id+':'+video.id;
+  const saved=savedApplyPlan(project.id,video.id);
+  if(saved){wrap.append(applyPlanCard(saved));return wrap;}
+  const button=el('button','Apply this','secondary apply-button');
+  const feedback=el('p',applyMessages.get(key)||'', 'small apply-feedback');feedback.setAttribute('role','status');
+  const applying=state.applying&&state.applying.videoId===video.id?state.applying:null;
+  if(applying?.running){button.disabled=true;feedback.textContent='Building one apply plan…';}
+  if(applying?.error)feedback.textContent=applying.error;
+  button.onclick=async()=>{
+    button.disabled=true;applyMessages.set(key,'Checking the idea and preparing a cost estimate…');feedback.textContent='Checking the idea and preparing a cost estimate…';
+    try{
+      const preview=await action('/api/projects/apply/preview',{projectId:project.id,videoId:video.id});
+      if(!preview){button.disabled=false;return;}
+      if(preview.saved){feedback.textContent='Saved plan loaded. No paid call.';render();return;}
+      const ok=window.confirm('Get a short apply plan for this idea? Estimated cost: up to $'+preview.estimatedUSD.toFixed(4)+'. Maximum $0.01. One DeepSeek call; no project files will be changed.');
+      if(!ok){applyMessages.set(key,'Cancelled. No paid call made.');feedback.textContent='Cancelled. No paid call made.';button.disabled=false;return;}
+      await action('/api/projects/apply/confirm',{token:preview.token,confirmed:true});
+      applyMessages.set(key,'Sending one request to DeepSeek. The plan will appear here.');feedback.textContent='Sending one request to DeepSeek. The plan will appear here.';
+      message('Apply plan requested. Estimated cost up to $'+preview.estimatedUSD.toFixed(4)+'.');
+    }catch(error){applyMessages.set(key,error.message);feedback.textContent=error.message;button.disabled=false;}
+  };
+  wrap.append(button,feedback);return wrap;
+}
 function renderProjects(projects,videos,coachlab){
  const sends=new Map((coachlab?.sends||[]).map(send=>[send.video_id,send]));
  const fingerprint=JSON.stringify(projects),host=$('my-project-list');
@@ -256,7 +293,7 @@ function renderProjects(projects,videos,coachlab){
  }));}
  const cards=new Map([...host.children].map(row=>[row.dataset.projectCard,row]));
  for(const project of projects){const row=cards.get(project.id);if(!row)continue;const matches=projectVideoIdeas(videos,project,projects);
-  const slot=row.querySelector('.matched-ideas');const isCoachlab=project.name==='Martial Arts and Fitness';const sentMatches=isCoachlab?matches.filter(({video})=>sends.get(video.id)?.status==='sent'):[];const visibleMatches=isCoachlab?matches.filter(({video})=>sends.get(video.id)?.status!=='sent'):matches;slot.replaceChildren(...visibleMatches.map(({video,recommendations})=>{const idea=el('article',undefined,'idea project-video');idea.id=projectResultAnchor(project.id,video.id);const titleButton=el('button',video.result?.title||video.title,'card-title');titleButton.onclick=()=>openFullResult(video);idea.append(titleButton,el('span',project.name,'project-tag'),el('span',videoStatus(video),'pill'),el('span',hasDeepSeekResult(video)?'DeepSeek':'Older keyword match','pill'),thumbnailNode(document,video.thumbnailUrl),el('p',shortSummary(video),'result-summary'));const list=el('ul');for(const recommendation of recommendations)for(const line of projectIdeaBullets(recommendation.application))list.append(el('li',line));idea.append(list);if(isCoachlab&&video.result?.summary?.trim()){const sendLabel=el('label',undefined,'send-row');const box=document.createElement('input');box.type='checkbox';box.checked=coachlabSelected.has(video.id);box.onchange=()=>{box.checked?coachlabSelected.add(video.id):coachlabSelected.delete(video.id);};sendLabel.append(box,document.createTextNode(' select'));idea.append(sendLabel);const sendStatus=sends.get(video.id);if(sendStatus?.status==='failed'){const retry=el('button','Retry send','secondary');retry.disabled=!coachlab?.configured;retry.onclick=event=>{event.stopPropagation();sendCoachlab([video.id]);};idea.append(retry);}}
+  const slot=row.querySelector('.matched-ideas');const isCoachlab=project.name==='Martial Arts and Fitness';const sentMatches=isCoachlab?matches.filter(({video})=>sends.get(video.id)?.status==='sent'):[];const visibleMatches=isCoachlab?matches.filter(({video})=>sends.get(video.id)?.status!=='sent'):matches;slot.replaceChildren(...visibleMatches.map(({video,recommendations})=>{const idea=el('article',undefined,'idea project-video');idea.id=projectResultAnchor(project.id,video.id);const titleButton=el('button',video.result?.title||video.title,'card-title');titleButton.onclick=()=>openFullResult(video);idea.append(titleButton,el('span',project.name,'project-tag'),el('span',videoStatus(video),'pill'),el('span',hasDeepSeekResult(video)?'DeepSeek':'Older keyword match','pill'),thumbnailNode(document,video.thumbnailUrl),el('p',shortSummary(video),'result-summary'));const list=el('ul');for(const recommendation of recommendations)for(const line of projectIdeaBullets(recommendation.application))list.append(el('li',line));idea.append(list);if(recommendations[0])idea.append(renderApply(project,video));if(isCoachlab&&video.result?.summary?.trim()){const sendLabel=el('label',undefined,'send-row');const box=document.createElement('input');box.type='checkbox';box.checked=coachlabSelected.has(video.id);box.onchange=()=>{box.checked?coachlabSelected.add(video.id):coachlabSelected.delete(video.id);};sendLabel.append(box,document.createTextNode(' select'));idea.append(sendLabel);const sendStatus=sends.get(video.id);if(sendStatus?.status==='failed'){const retry=el('button','Retry send','secondary');retry.disabled=!coachlab?.configured;retry.onclick=event=>{event.stopPropagation();sendCoachlab([video.id]);};idea.append(retry);}}
    const more=el('details');more.dataset.combinedDetail='idea:'+project.id+':'+video.id;more.open=openCombined.has(more.dataset.combinedDetail);more.append(el('summary','Give me more'),card(video,{includeId:false,scope:project.id}));idea.append(more);idea.onclick=event=>{if(!event.target.closest('button,a,summary,input,select,details'))openFullResult(video);};return idea;}));if(isCoachlab&&matches.length){const bar=el('div',undefined,'coachlab-send-bar');const eligible=visibleMatches.filter(({video})=>Boolean(video.result?.summary?.trim()));const selectAll=el('label',undefined,'coachlab-selectall');const allBox=document.createElement('input');allBox.type='checkbox';allBox.checked=eligible.length>0&&eligible.every(({video})=>coachlabSelected.has(video.id));allBox.disabled=!coachlab?.configured||!eligible.length;allBox.onchange=()=>{for(const {video} of eligible){if(allBox.checked)coachlabSelected.add(video.id);else coachlabSelected.delete(video.id);}render();};selectAll.append(allBox,document.createTextNode(' Select all'));const sendSel=el('button','Send selected to CoachLab');sendSel.disabled=!coachlab?.configured||!eligible.length;sendSel.onclick=()=>{const ids=[...coachlabSelected].filter(id=>eligible.some(m=>m.video.id===id));if(!ids.length){coachlabMessage='Choose at least one post first.';message(coachlabMessage);render();return;}sendCoachlab(ids);};const feedback=el('p',coachlabMessage,'coachlab-feedback');feedback.setAttribute('role','status');bar.append(selectAll,sendSel,feedback);if(!coachlab?.configured)bar.append(el('span','CoachLab is not configured on this server.','small'));slot.append(bar);}if(isCoachlab&&sentMatches.length){const details=el('details',undefined,'coachlab-sent');details.append(el('summary','Sent to CoachLab ('+sentMatches.length+')'));const list=el('ul');for(const {video} of sentMatches){const link=el('a',video.result?.title||video.title);link.href=video.url;link.target='_blank';link.rel='noopener noreferrer';const item=el('li');item.append(link);list.append(item);}details.append(list);slot.append(details);}if(!matches.length)slot.append(el('p','No matches yet','small'));
   const combined=row.querySelector('.combined-ideas');combined.replaceChildren();appendCombinations(combined,project,videos);
  }

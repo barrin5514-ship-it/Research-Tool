@@ -38,6 +38,7 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS coachlab_sends(video_id TEXT PRIMARY KEY REFERENCES videos(id),url TEXT NOT NULL,status TEXT NOT NULL,reason TEXT,at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY,what TEXT NOT NULL DEFAULT '',uses TEXT NOT NULL DEFAULT '');
       CREATE TABLE IF NOT EXISTS media_cleanup(video_id TEXT PRIMARY KEY,freed_bytes INTEGER NOT NULL,at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS project_apply_plans(project_id TEXT NOT NULL,video_id TEXT NOT NULL,plan_json TEXT NOT NULL,usage_json TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(project_id,video_id));
     `);
     this.transaction(()=>{if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='seeded'").get()){for(const name of ['Pennywise','Personafy','Tech','Dev Squad AI','Sims 4 Upgrades'])this.saveProject({name,description:PROJECT_CONTEXT[name]});this.db.prepare("INSERT INTO project_settings VALUES('seeded','1')").run();}if(!this.db.prepare("SELECT 1 FROM project_settings WHERE key='exclusions_seeded'").get()){this.db.prepare("INSERT OR IGNORE INTO collection_exclusions VALUES('reference','reference')").run();this.db.prepare("INSERT INTO project_settings VALUES('exclusions_seeded','1')").run();}});
     this.migrateDemoDescriptions();
@@ -161,6 +162,10 @@ export class LibraryStore {
     if(resultJson){const result=JSON.parse(resultJson);result.title=cleanTitle;result.caption=cleanCaption;resultJson=JSON.stringify(result);}
     this.db.prepare('UPDATE videos SET title=?,result_json=?,updated_at=? WHERE id=?').run(cleanTitle,resultJson,Date.now(),id);
   }
+  // One saved apply plan per project idea; the dashboard shows this instead of paying again.
+  applyPlans(){return this.db.prepare('SELECT project_id,video_id,plan_json,usage_json,created_at FROM project_apply_plans ORDER BY created_at DESC').all().map(row=>({projectId:row.project_id,videoId:row.video_id,plan:JSON.parse(row.plan_json),usage:row.usage_json?JSON.parse(row.usage_json):null,createdAt:row.created_at}));}
+  getApplyPlan(projectId,videoId){const row=this.db.prepare('SELECT plan_json,usage_json,created_at FROM project_apply_plans WHERE project_id=? AND video_id=?').get(projectId,videoId);return row?{projectId,videoId,plan:JSON.parse(row.plan_json),usage:row.usage_json?JSON.parse(row.usage_json):null,createdAt:row.created_at}:null;}
+  saveApplyPlan({projectId,videoId,plan,usage=null,at=Date.now()}){this.db.prepare('INSERT INTO project_apply_plans VALUES(?,?,?,?,?) ON CONFLICT(project_id,video_id) DO UPDATE SET plan_json=excluded.plan_json,usage_json=excluded.usage_json,created_at=excluded.created_at').run(projectId,videoId,JSON.stringify(plan),usage?JSON.stringify(usage):null,at);}
   // Remembers how much temporary media was deleted after a successful analysis.
   recordCleanup(videoId,bytes,at=Date.now()){if(!Number.isFinite(bytes)||bytes<0)return;this.db.prepare('INSERT INTO media_cleanup VALUES(?,?,?) ON CONFLICT(video_id) DO UPDATE SET freed_bytes=excluded.freed_bytes,at=excluded.at').run(videoId,Math.round(bytes),at);}
   cleanupStats(){const row=this.db.prepare('SELECT COUNT(*) AS posts,COALESCE(SUM(freed_bytes),0) AS bytes FROM media_cleanup').get();return {posts:row?.posts||0,bytes:row?.bytes||0};}

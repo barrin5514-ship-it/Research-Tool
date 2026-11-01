@@ -894,3 +894,12 @@ html[data-theme="dark"] button:disabled {
 .reference-handoff-row > p { flex-basis: 100%; margin: 4px 0 0; }
 .reference-handoff-row .video-thumbnail { width: 54px; height: 40px; object-fit: cover; border-radius: 6px; }
 .personafy-open { margin-left: 4px; }
+
+/* Apply-plan card shown under one project idea. */
+.apply-box { margin-top: 10px; }
+.apply-plan { border: 1px solid rgba(160, 190, 255, .18); background: rgba(20, 28, 55, .55); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+.apply-plan h4 { margin: 0 0 6px; }
+.apply-plan p { margin: 4px 0; }
+.apply-plan .notice { color: #ffd479; }
+.apply-prompt { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; background: rgba(0, 0, 0, .28); border-radius: 8px; padding: 8px; font-size: 11px; }
+.apply-feedback { min-height: 1em; }
