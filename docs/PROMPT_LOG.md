@@ -1560,3 +1560,5 @@ Budgeting: the batch request log now accepts the 900-token apply payloads, assoc
 Live free check: /api/batch/preview for 3 posts returned estimatedUSD 0.120852 with the note “Upper estimate includes 3 automatic apply plans per post, capped at $0.01 each.” The batch was not started, so no paid call was made. New tests cover matched auto-plan creation, skipping alreadyHave and already-saved plans, saving auto plans, the batch allowance, and apply-call budget accounting.
 
 Verification: Research Agent 258 passed, 0 failed, 0 skipped (docs/FULL_TEST_OUTPUT_20261101_TASKS.txt). No project code was changed. Committed and pushed.
+
+Follow-up: the saved-result “Run again” path uses the same automatic apply-plan step. Its preview adds the three-plan allowance and its request guard allows the extra bounded calls, so re-analysis of a saved post can save plans without a separate click.
