@@ -134,10 +134,25 @@
 <div class="stats" id="stats" aria-label="Processing totals"></div><p class="small" id="media-freed" role="status"></p><details class="panel" open><summary>Library charts</summary><div class="library-charts"><section id="chart-collections"></section><section id="chart-progress"></section><section id="chart-spending"></section><section><h3>Wishlist price history</h3><p>Space for price trends. Individual price histories remain in Wishlist.</p></section></div></details>
 <section id="library-post-detail" class="panel post-detail" aria-labelledby="post-detail-heading" tabindex="-1" hidden><button id="close-post-detail" class="secondary">Close details</button><h3 id="post-detail-heading"></h3><dl id="post-detail-facts"></dl><a id="post-detail-original" target="_blank" rel="noopener noreferrer">Open original Instagram post</a><div id="post-run-controls" hidden><button id="run-post-now">Run now</button><p id="post-run-note" class="small"></p><div id="single-run-confirm" class="single-run-confirm" hidden><p id="single-run-estimate"></p><p id="single-run-cost-note" class="small"></p><button id="confirm-post-run">Confirm and run this post</button><button id="cancel-post-run" class="secondary">Cancel</button></div></div><p id="post-run-status" role="status" aria-live="polite"></p></section>
 <section class="panel" aria-labelledby="sync-heading"><h3 id="sync-heading">Auto-sync saved posts</h3><label><input type="checkbox" id="sync-enabled"> Auto-sync saved posts</label><label for="sync-frequency">Check Instagram Saved</label><select id="sync-frequency"><option value="1">Once a day</option><option value="2">Twice a day</option></select><button id="sync-now" class="secondary">Sync now</button><button id="sync-save" class="secondary">Save auto-sync settings</button><p class="small">Off until you turn it on. Uses only the Research Agent sign-in profile while this tool is running. Reads up to 30 posts, stops at the first known post, and never starts analysis.</p><p id="sync-status" role="status"></p><p id="sync-now-result" role="status"></p><details><summary>Check history</summary><div id="sync-history"></div></details></section>
-<section class="panel" aria-labelledby="reference-handoff-heading"><h3 id="reference-handoff-heading">Reference hand-off</h3><label><input id="reference-handoff-enabled" type="checkbox"> Send new reference posts to Personafy</label><button id="reference-handoff-save" class="secondary">Save hand-off setting</button><p class="small">Off until you turn it on. Also enable Auto-sync saved posts above. Copies media to the hand-off folder; it does not import into or change Personafy. Reference posts remain excluded from research. No AI calls.</p><p id="reference-handoff-status" role="status"></p><p id="reference-handoff-folder" class="small"></p><button id="reference-handoff-retry-all" class="secondary">Retry all failed</button><div id="reference-handoff-list"></div>
+<section class="panel personafy-merged" aria-labelledby="personafy-heading">
+<h3 id="personafy-heading">Personafy</h3>
+<p class="small">Suggested references, failed hand-offs, other posts, and sent items are all in one place. Media is copied to the existing Personafy hand-off folder. Nothing is sent automatically.</p>
+<section class="personafy-suggested" aria-labelledby="personafy-reference-heading">
+<h4 id="personafy-reference-heading">Suggested Personafy references</h4>
+<p class="small">Visual content to copy: a look, outfit, pose, lighting, camera angle or editing style. Tick posts, then send. Use “Not a reference” to correct a wrong suggestion.</p>
+<div id="personafy-reference-list"></div>
+<button id="send-personafy-references" class="secondary" type="button">Send selected to Personafy references</button>
+<p id="personafy-reference-status" class="small" role="status"></p>
+</section>
+<hr>
+<label><input id="reference-handoff-enabled" type="checkbox"> Send new reference posts to Personafy</label><button id="reference-handoff-save" class="secondary">Save hand-off setting</button>
+<p class="small">Off until you turn it on. Also enable Auto-sync saved posts above. Copies media to the hand-off folder; it does not import into or change Personafy. Reference posts remain excluded from research. No AI calls.</p>
+<p id="reference-handoff-status" role="status"></p><p id="reference-handoff-folder" class="small"></p>
+<h4>Failed or incomplete hand-offs</h4>
+<button id="reference-handoff-retry-all" class="secondary">Retry all failed</button><div id="reference-handoff-list"></div>
 <div class="personafy-picker" aria-labelledby="personafy-picker-heading">
   <h4 id="personafy-picker-heading">Send other posts to Personafy</h4>
-  <p class="small">Pick saved posts for Personafy's media library. Media is copied into the same hand-off folder and format. This does not analyze the post or change Personafy's code.</p>
+  <p class="small">Pick any saved posts for Personafy's media library. Media is copied into the same hand-off folder and format. This does not analyze the post or change Personafy's code.</p>
   <label class="personafy-selectall"><input id="personafy-select-all" type="checkbox"> Select all</label>
   <button id="personafy-load-meta" class="secondary" type="button">Load missing captions &amp; thumbnails</button>
   <button id="personafy-refresh-preview" class="secondary" type="button">Re-fix existing thumbnails</button>
@@ -162,9 +177,8 @@
 <label for="research-filter">Show results</label><select id="research-filter"><option value="all">All results</option><option value="just-finished">Just finished</option></select>
 <section id="destination-suggestions" class="panel destination-panel" aria-labelledby="destination-heading">
 <h3 id="destination-heading">Suggested destinations</h3>
-<p class="small">Suggestions only. Nothing is sent until you tick posts and choose a send button. "Not a reference" and "Not for CoachLab" corrections teach later analyses.</p>
+<p class="small">Suggestions only. Nothing is sent until you tick posts and choose a send button. Personafy suggestions and corrections are in the Personafy section. Corrections teach later analyses.</p>
 <div class="destination-grid">
-  <section aria-labelledby="personafy-reference-heading"><h4 id="personafy-reference-heading">Suggested Personafy references</h4><div id="personafy-reference-list"></div><button id="send-personafy-references" class="secondary" type="button">Send selected to Personafy references</button></section>
   <section aria-labelledby="coachlab-suggestions-heading"><h4 id="coachlab-suggestions-heading">Suggested for CoachLab</h4><div id="coachlab-suggestions-list"></div><button id="send-coachlab-suggestions" class="secondary" type="button">Send selected to CoachLab</button></section>
 </div>
 <p id="destination-status" class="small" role="status"></p>

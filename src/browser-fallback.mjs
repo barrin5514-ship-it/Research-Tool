@@ -33,6 +33,8 @@ export async function createBrowserFallback({capture,profileProcesses,browserPat
   const readMeta=async()=>{try{return JSON.parse(await readFile(metaFile,'utf8'));}catch{return {};}};
   const save=async value=>writeFile(metaFile,JSON.stringify(value));
   const windowOpen=async()=>Boolean((await profileProcesses(profile)).all.length);
+  // Give the owner a short chance to close the sign-in window before giving up.
+  async function waitForClosed(){for(let attempt=0;attempt<8;attempt++){if(!await windowOpen())return;await wait(2500);}throw problem('BROWSER_BUSY','Close the Research Agent sign-in browser, then retry.');}
   // The process scan costs ~1.8s on Windows. The dashboard polls state every few
   // seconds, so reuse a recent answer and invalidate it after connect/confirm.
   let cachedStatus=null;
@@ -49,15 +51,28 @@ export async function createBrowserFallback({capture,profileProcesses,browserPat
   }
   async function locked(fn){
     let lock;
-    try{lock=await open(lockFile,'wx');}catch(e){if(e.code!=='EEXIST')throw e;const pid=Number(await readFile(lockFile,'utf8'));let gone=false;try{process.kill(pid,0);}catch(err){gone=Number.isInteger(pid)&&pid>0&&err.code==='ESRCH';}if(!gone)throw problem('BROWSER_BUSY','Research Agent browser is busy. Close its sign-in window before processing.');await unlink(lockFile);lock=await open(lockFile,'wx');}
+    // Wait briefly for another browser job, and remove a lock left by a dead process.
+    for(let attempt=0;attempt<12;attempt++){
+      try{lock=await open(lockFile,'wx');break;}catch(e){
+        if(e.code!=='EEXIST')throw e;
+        const pid=Number(await readFile(lockFile,'utf8'));
+        let alive=false;try{process.kill(pid,0);alive=Number.isInteger(pid)&&pid>0;}catch(err){alive=Number.isInteger(pid)&&pid>0&&err.code!=='ESRCH';}
+        if(!alive){await unlink(lockFile).catch(()=>{});continue;}
+        if(attempt===11)throw problem('BROWSER_BUSY','Research Agent browser is busy. Close its sign-in window before processing.');
+        await wait(2500);
+      }
+    }
+    if(!lock)throw problem('BROWSER_BUSY','Research Agent browser is busy. Close its sign-in window before processing.');
     await lock.writeFile(String(process.pid));try{return await fn();}finally{await lock.close();await unlink(lockFile);}
   }
   return {
-    async collectSaved({known,active,collection,limit=30}){return locked(async()=>{if(!browserPath||!(await readMeta()).ownerConfirmed||await windowOpen())throw Error("Close the Research Agent sign-in browser and confirm sign-in first.");const {readSavedPage}=await import("./saved-page.mjs");const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+"devtools-browser.ts").href);return readSavedPage({browserPath,profile,known,active,collection,limit,startBrowser:startDevtoolsBrowser});});},
-    async referenceMetadata(url){return locked(async()=>{const source=new URL(url);if(source.protocol!=='https:'||source.username||source.password||source.port||!['instagram.com','www.instagram.com'].includes(source.hostname)||!/^\/(?:p|reels?)\/[A-Za-z0-9_-]+\/?$/.test(source.pathname))throw Error('Only Instagram post links are supported.');if(!browserPath||!(await readMeta()).ownerConfirmed||await windowOpen())throw Error('The Research Agent sign-in browser must be connected and closed.');const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:source.href,startBrowser:startDevtoolsBrowser});});},
+    async collectSaved({known,active,collection,limit=30}){return locked(async()=>{if(!browserPath||!(await readMeta()).ownerConfirmed)throw Error("Close the Research Agent sign-in browser and confirm sign-in first.");await waitForClosed();const {readSavedPage}=await import("./saved-page.mjs");const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+"devtools-browser.ts").href);return readSavedPage({browserPath,profile,known,active,collection,limit,startBrowser:startDevtoolsBrowser});});},
+    async referenceMetadata(url){return locked(async()=>{const source=new URL(url);if(source.protocol!=='https:'||source.username||source.password||source.port||!['instagram.com','www.instagram.com'].includes(source.hostname)||!/^\/(?:p|reels?)\/[A-Za-z0-9_-]+\/?$/.test(source.pathname))throw Error('Only Instagram post links are supported.');if(!browserPath||!(await readMeta()).ownerConfirmed)throw Error('The Research Agent sign-in browser must be connected and closed.');await waitForClosed();const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:source.href,startBrowser:startDevtoolsBrowser});});},
+    // Walks the post (including carousel slides) and returns the actual image bytes.
+    async capturePostImages(url){return locked(async()=>{const source=new URL(url);if(source.protocol!=='https:'||source.username||source.password||source.port||!['instagram.com','www.instagram.com'].includes(source.hostname)||!/^\/(?:p|reels?)\/[A-Za-z0-9_-]+\/?$/.test(source.pathname))throw Error('Only Instagram post links are supported.');if(!browserPath||!(await readMeta()).ownerConfirmed)throw Error('The Research Agent sign-in browser must be connected and closed.');await waitForClosed();const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:source.href,captureImages:true,startBrowser:startDevtoolsBrowser});});},
     // Reads a post page and returns a small screenshot for its thumbnail. No AI call.
-    async postPreview(url){return locked(async()=>{const source=new URL(url);if(source.protocol!=='https:'||source.username||source.password||source.port||!['instagram.com','www.instagram.com'].includes(source.hostname)||!/^\/(?:p|reels?)\/[A-Za-z0-9_-]+\/?$/.test(source.pathname))throw Error('Only Instagram post links are supported.');if(!browserPath||!(await readMeta()).ownerConfirmed||await windowOpen())throw Error('The Research Agent sign-in browser must be connected and closed.');const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:source.href,captureThumbnail:true,startBrowser:startDevtoolsBrowser});});},
-    async captureReference(url){return locked(async()=>{if(!capture||!(await readMeta()).ownerConfirmed||await windowOpen())throw Error('The Research Agent sign-in browser must be connected and closed.');const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:url,captureVideo:true,startBrowser:startDevtoolsBrowser});});},
+    async postPreview(url){return locked(async()=>{const source=new URL(url);if(source.protocol!=='https:'||source.username||source.password||source.port||!['instagram.com','www.instagram.com'].includes(source.hostname)||!/^\/(?:p|reels?)\/[A-Za-z0-9_-]+\/?$/.test(source.pathname))throw Error('Only Instagram post links are supported.');if(!browserPath||!(await readMeta()).ownerConfirmed)throw Error('The Research Agent sign-in browser must be connected and closed.');await waitForClosed();const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:source.href,captureThumbnail:true,startBrowser:startDevtoolsBrowser});});},
+    async captureReference(url){return locked(async()=>{if(!capture||!(await readMeta()).ownerConfirmed)throw Error('The Research Agent sign-in browser must be connected and closed.');await waitForClosed();const {readSavedPage}=await import('./saved-page.mjs');const {startDevtoolsBrowser}=await import(pathToFileURL(upstream+'devtools-browser.ts').href);return readSavedPage({browserPath,profile,postUrl:url,captureVideo:true,startBrowser:startDevtoolsBrowser});});},
     async status(){return statusSnapshot();},
     async connect(){cachedStatus=null;return locked(async()=>{if(!capture||!browserPath)throw problem('BROWSER_UNAVAILABLE','No supported installed browser was found.');if(!await windowOpen())await launch();return {message:'Sign into Instagram yourself in the Research Agent browser. Close that window, then click “I signed in and closed the browser”.'};});},
     async confirm(){cachedStatus=null;return locked(async()=>{if(await windowOpen())throw problem('BROWSER_BUSY','Close the Research Agent sign-in browser first.');await save({...await readMeta(),ownerConfirmed:true});return {message:'Your confirmation was saved. Session access will be tested during capture.'};});},
@@ -65,7 +80,7 @@ export async function createBrowserFallback({capture,profileProcesses,browserPat
       const source=new URL(job.url??job.sourceUrl);
       if(source.protocol!=='https:'||!['www.instagram.com','instagram.com'].includes(source.hostname)||source.port||source.username||source.password||!/^\/(p|reels?|tv)\/[A-Za-z0-9_-]+\/?$/.test(source.pathname))throw problem('INVALID_SOURCE','Only individual Instagram videos are supported.');
       source.search='';source.hash='';
-      if(await windowOpen())throw problem('BROWSER_BUSY','Close the Research Agent sign-in browser before capture.');
+      await waitForClosed();
       let meta=await readMeta();const gap=20_000-(now()-(meta.lastAttempt||0));if(gap>0)await wait(gap,undefined,{signal});
       const day=new Date(now()).toISOString().slice(0,10),count=meta.day===day?(meta.count||0):0;
       if(count>=40)throw problem('CAPTURE_DAILY_LIMIT','Daily capture limit reached; try tomorrow.');
