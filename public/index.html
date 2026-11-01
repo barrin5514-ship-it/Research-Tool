@@ -160,6 +160,15 @@
 <p class="small"><a id="project-results-link" href="#project-ideas">Videos matched to a project are in Project ideas (0)</a></p>
 <p class="small"><a id="recipe-results-link" href="#recipes">Recipes are in the Recipes tab (0)</a></p>
 <label for="research-filter">Show results</label><select id="research-filter"><option value="all">All results</option><option value="just-finished">Just finished</option></select>
+<section id="destination-suggestions" class="panel destination-panel" aria-labelledby="destination-heading">
+<h3 id="destination-heading">Suggested destinations</h3>
+<p class="small">Suggestions only. Nothing is sent until you tick posts and choose a send button. "Not a reference" and "Not for CoachLab" corrections teach later analyses.</p>
+<div class="destination-grid">
+  <section aria-labelledby="personafy-reference-heading"><h4 id="personafy-reference-heading">Suggested Personafy references</h4><div id="personafy-reference-list"></div><button id="send-personafy-references" class="secondary" type="button">Send selected to Personafy references</button></section>
+  <section aria-labelledby="coachlab-suggestions-heading"><h4 id="coachlab-suggestions-heading">Suggested for CoachLab</h4><div id="coachlab-suggestions-list"></div><button id="send-coachlab-suggestions" class="secondary" type="button">Send selected to CoachLab</button></section>
+</div>
+<p id="destination-status" class="small" role="status"></p>
+</section>
 <div class="research-send-tools" aria-label="Send selected research results"><label><input id="research-select-all" type="checkbox"> Select all</label><button id="research-personafy-send" class="secondary" type="button">Send selected to Personafy</button><button id="research-coachlab-send" class="secondary" type="button">Send selected to CoachLab</button><p id="research-send-status" class="small" role="status"></p></div><div id="results"></div><details class="panel usage-panel"><summary>AI usage and estimated costs</summary><div id="api-usage" class="small"></div><p class="small">Estimates are not invoices. Spending totals are estimates; account balance comes directly from DeepSeek when refreshed.</p></details>
 </section>
 

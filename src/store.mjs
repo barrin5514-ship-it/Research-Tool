@@ -36,6 +36,7 @@ export class LibraryStore {
       CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, video_id TEXT, action TEXT NOT NULL, detail TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS coachlab_sends(video_id TEXT PRIMARY KEY REFERENCES videos(id),url TEXT NOT NULL,status TEXT NOT NULL,reason TEXT,at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS destination_feedback(video_id TEXT NOT NULL,destination TEXT NOT NULL,action TEXT NOT NULL,reason TEXT,example TEXT,at INTEGER NOT NULL,PRIMARY KEY(video_id,destination));
       CREATE TABLE IF NOT EXISTS project_profiles(project_id TEXT PRIMARY KEY,what TEXT NOT NULL DEFAULT '',uses TEXT NOT NULL DEFAULT '');
       CREATE TABLE IF NOT EXISTS media_cleanup(video_id TEXT PRIMARY KEY,freed_bytes INTEGER NOT NULL,at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS project_apply_plans(project_id TEXT NOT NULL,video_id TEXT NOT NULL,plan_json TEXT NOT NULL,usage_json TEXT,created_at INTEGER NOT NULL,PRIMARY KEY(project_id,video_id));
@@ -159,6 +160,15 @@ export class LibraryStore {
     if (!row || !['failed', 'needs_analysis', 'skipped'].includes(row.status)) throw new Error('Only failed, skipped, or incomplete items can be retried');
     this.db.prepare("UPDATE videos SET status='pending',attempts=0,available_at=0,error=NULL,updated_at=? WHERE id=?").run(Date.now(), id);
   }
+  // Saves owner corrections and sends as short examples for future analyses.
+  recordDestinationFeedback({videoId,destination,action,reason='',example='',at=Date.now()}={}){
+    if(typeof videoId!=='string'||!videoId)throw Error('Choose a post first.');
+    if(!['personafy_reference','coachlab'].includes(destination))throw Error('Unknown destination.');
+    if(!['not_reference','not_coachlab','sent'].includes(action))throw Error('Unknown correction.');
+    this.db.prepare('INSERT INTO destination_feedback VALUES(?,?,?,?,?,?) ON CONFLICT(video_id,destination) DO UPDATE SET action=excluded.action,reason=excluded.reason,example=excluded.example,at=excluded.at').run(videoId,destination,action,String(reason||'').slice(0,300),String(example||'').slice(0,500),at);
+  }
+  destinationFeedback(){return this.db.prepare('SELECT video_id,destination,action,reason,example,at FROM destination_feedback ORDER BY at DESC').all().map(row=>({videoId:row.video_id,destination:row.destination,action:row.action,reason:row.reason,example:row.example,at:row.at}));}
+  destinationExamples(limit=8){return this.destinationFeedback().filter(row=>['sent','not_reference','not_coachlab'].includes(row.action)).slice(0,Math.max(1,Math.min(20,limit))).map(row=>({destination:row.destination,action:row.action,reason:row.reason,example:row.example}));}
   // Records the result of a CoachLab send so the dashboard can show Retry or Sent.
   // Stores the first caption line and full caption after the browser reads a post.
   updateVideoMetadata(id,{title,caption}={}){

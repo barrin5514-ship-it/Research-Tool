@@ -54,6 +54,13 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
   const claims=new ClaimCheck({store,apiKey:process.env.DEEPSEEK_API_KEY,quota:braveQuota,isBusy:researchBusy,onUsage:record=>recordUsage(USAGE_FILE,record)});
   let maintenance=Promise.resolve();
   const timer=setInterval(()=>{if(wishlist.running||sync.running||referenceHandoff.running)return;maintenance=sync.tick().then(()=>wishlist.tick()).catch(()=>{});},60000);timer.unref();
+  // Keep a short owner-decision example for the next analysis prompt.
+  const rememberDestination = (id, destination) => {
+    const video = store.get(id);
+    if (!video) return;
+    const suggestion = destination === 'coachlab' ? video.result?.destinations?.coachlab : video.result?.destinations?.personafyReference;
+    store.recordDestinationFeedback({ videoId: id, destination, action: 'sent', reason: suggestion?.reason || '', example: ((video.result?.title || video.title || '') + ' — ' + String(video.result?.summary || '')).slice(0, 480) });
+  };
   const csrf = randomBytes(32).toString('hex');
   const coachlabUrl = (process.env.COACHLAB_URL || '').trim();
   const coachlabToken = (process.env.COACHLAB_IMPORT_TOKEN || '').trim();
@@ -71,7 +78,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
       if(req.method==='GET'&&path.startsWith('/api/thumbnails/')){try{return send(200,await readThumbnail(thumbnailRoot,path.slice('/api/thumbnails/'.length)),'image/jpeg');}catch{return send(404,{error:'Thumbnail unavailable'});}}
       // Product pictures are proxied so the page never loads third-party images directly.
       if(req.method==='GET'&&path.startsWith('/api/shopping-image/')){try{const raw=decodeURIComponent(path.slice('/api/shopping-image/'.length));if(!wishlist.imageAllowed(raw))return send(404,{error:'Picture unavailable'});const image=await fetchShoppingImage(raw);return send(200,image.bytes,image.type);}catch{return send(404,{error:'Picture unavailable'});}}
-      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects().map(p=>({...p,draft:DRAFT_PROFILES[p.name]||null})),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},applyPlans:store.applyPlans(),applying:applyPlans.status(),excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),enrichment:{...enrichment},rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),coachlab:{configured:Boolean(coachlabUrl&&coachlabToken),sends:store.coachlabSends()},paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),mediaCleanup:store.cleanupStats(),balance:balanceTracker?await balanceTracker.get():null,
+      if (req.method === 'GET' && path === '/api/state') return send(200,{application:'instagram-research-library',savedSync:sync.status(),referenceHandoff:await referenceHandoff.status(),wishlist:wishlist.list(),instagramBrowser:browserSession?await browserSession.status():null,deepseekUsage:await readUsage(USAGE_FILE),videos:await thumbnailVideos(store.list(),thumbnailRoot),projects:store.projects().map(p=>({...p,draft:DRAFT_PROFILES[p.name]||null})),combinedPlans:store.combinations(),combining:combinations?.status()||{running:false},applyPlans:store.applyPlans(),applying:applyPlans.status(),destinationFeedback:store.destinationFeedback(),excludedCollections:store.excludedCollections(),researchCounts:researchCounts(store.list(),store.excludedCollections()),enrichment:{...enrichment},rechecks:savedAnalysis.running?{running:true,project:'saved result',done:0,total:1,costUSD:0}:rechecks?.status()||{running:false},queue:queue.status(),csrf,localAIEnabled,researchProvider,braveConfigured:Boolean(key),braveQuota:braveQuota.status(),coachlab:{configured:Boolean(coachlabUrl&&coachlabToken),sends:store.coachlabSends()},paidApproval:false,batch:batches?await batches.status():null,spending:await usageSummary(USAGE_FILE),mediaCleanup:store.cleanupStats(),balance:balanceTracker?await balanceTracker.get():null,
         limitations:['Choose up to 25 videos; one video at a time.','Windows speech/OCR is available; model reasoning and semantic claim verification remain incomplete.','No background operation after this server stops.','Approval records your decision; it does not modify a project.']});
       if (req.method !== 'POST') return send(404,{error:'Not found'});
       const token = Buffer.from(String(req.headers['x-research-token'] || ''));
@@ -114,7 +121,18 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
           .finally(()=>{enrichment.running=false;});
         return send(200,{message:'Loading captions and thumbnails one at a time. This can take a few minutes.'});
       }
-      if(path==='/api/reference-handoff/send'){if(sync.running||wishlist.running)throw Error('Wait for the current sync or price check to finish.');return send(200,await referenceHandoff.sendSelected(body.ids));}
+      if(path==='/api/reference-handoff/send'){if(sync.running||wishlist.running)throw Error('Wait for the current sync or price check to finish.');const ids=Array.isArray(body.ids)?body.ids:[],result=await referenceHandoff.sendSelected(ids);for(const id of ids)rememberDestination(id,'personafy_reference');return send(200,result);}
+      if(path==='/api/destinations/feedback'){
+        const video=store.get(body.videoId);
+        if(!video)throw Error('Post not found.');
+        const destination=body.destination==='coachlab'?'coachlab':'personafy_reference';
+        const action=body.action==='not_coachlab'?'not_coachlab':body.action==='not_reference'?'not_reference':'';
+        if(!action)throw Error('Choose Not a reference or Not for CoachLab.');
+        if((destination==='coachlab')!==(action==='not_coachlab'))throw Error('That correction does not match the list.');
+        const suggestion=destination==='coachlab'?video.result?.destinations?.coachlab:video.result?.destinations?.personafyReference;
+        store.recordDestinationFeedback({videoId:video.id,destination,action,reason:suggestion?.reason||'',example:((video.result?.title||video.title||'')+' — '+String(video.result?.summary||'')).slice(0,480)});
+        return send(200,{message:'Correction saved. Future analyses will use it as an example.'});
+      }
       if(path==='/api/reference-handoff/retry'){if(sync.running||wishlist.running)throw Error('Wait for current sync or price checks to finish.');return send(200,await referenceHandoff.retry(body.id));}
       if(path==='/api/stop'&&referenceHandoff.running){referenceHandoff.stop();return send(200,{message:'Reference hand-off will stop safely.'});}
       if(referenceHandoff.running)throw Error('Wait for the reference hand-off to finish.');
@@ -165,7 +183,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
           const matched=video?.result?.recommendations?.some(r=>r.project===mma.name||r.projectId===mma.id);
           if(!video||!matched){results.push({id,status:'skipped',reason:'Not matched to Martial Arts and Fitness.'});continue;}
           const post={title:video.result?.title||video.title,url:video.url,summary:video.result?.summary||'',transcript:video.result?.transcript||''};
-          try{const outcome=await sendToCoachLab({post,baseUrl:coachlabUrl,token:coachlabToken});store.recordCoachlabSend(id,post.url,'sent','');sent++;results.push({id,status:outcome.duplicate?'duplicate':'sent'});}
+          try{const outcome=await sendToCoachLab({post,baseUrl:coachlabUrl,token:coachlabToken});store.recordCoachlabSend(id,post.url,'sent','');rememberDestination(id,'coachlab');sent++;results.push({id,status:outcome.duplicate?'duplicate':'sent'});}
           catch(error){store.recordCoachlabSend(id,post.url,'failed',error.message);results.push({id,status:'failed',reason:error.message});}
         }
         return send(200,{sent,results,message:`Sent ${sent} post${sent===1?'':'s'} to CoachLab. Nothing is auto-sent; only posts you pick are sent.`});

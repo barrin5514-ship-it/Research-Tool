@@ -165,7 +165,7 @@ test('the redesigned page keeps every working section and control', async () => 
     'links', 'add-links', 'manual-collection', 'files', 'import', 'instagram-status', 'instagram-connect', 'instagram-confirm',
     'stats', 'library-items', 'collections', 'post-detail-heading', 'sync-enabled', 'sync-now', 'reference-handoff-enabled',
     'batch-size', 'batch-collection', 'start', 'pause', 'batch-preview', 'batch-posts', 'deepseek-balance',
-    'spending-tracker', 'excluded-options', 'research-select-all', 'research-personafy-send', 'research-coachlab-send', 'research-send-status', 'skipped-items', 'results', 'research-filter', 'my-project-list',
+    'spending-tracker', 'excluded-options', 'research-select-all', 'research-personafy-send', 'research-coachlab-send', 'research-send-status', 'destination-suggestions', 'personafy-reference-list', 'coachlab-suggestions-list', 'send-personafy-references', 'send-coachlab-suggestions', 'destination-status', 'skipped-items', 'results', 'research-filter', 'my-project-list',
     'project-add', 'combine-review', 'recheck-review', 'new-ideas', 'recipe-list', 'wishlist-list', 'full-result',
     'home-projects', 'home-recent', 'pipeline-stages', 'activity-body', 'hero-core', 'sidebar-status', 'settings-provider',
   ];

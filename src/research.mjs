@@ -33,6 +33,11 @@ export function normalizeResearch(raw, { model, job, generatedAt = new Date().to
       estimatedCost: text(x?.estimatedCost,500) || 'Not estimated', risks: text(x?.risks,1500),
       worthInvestigating: text(x?.worthInvestigating,500), priority: ['high','medium','low'].includes(x?.priority) ? x.priority : 'low', alreadyHave: x.alreadyHave === true
     })).filter(x => x.application),
+    // These are suggestions only; they never send or change a project.
+    destinations: {
+      personafyReference: { suggested: raw.destinations?.personafyReference?.suggested === true, reason: text(raw.destinations?.personafyReference?.reason,240) },
+      coachlab: { suggested: raw.destinations?.coachlab?.suggested === true, reason: text(raw.destinations?.coachlab?.reason,240) },
+    },
     verification: 'NOT VERIFIED', researchStatus: 'visual_only',
     limitations: ['No speech transcription is configured.', 'Sampled frames do not cover every moment.', 'AI claims and cost estimates have not been independently verified.'],
     provenance: {provider:'local',model,generatedAt,sourceUrl:job.url,independentVerification:false}

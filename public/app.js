@@ -29,6 +29,9 @@ async function action(path,body={}){
 const coachlabSelected=new Set();
 const personafySelected=new Set();
 const researchSelected=new Set();
+const personafyReferenceSelected=new Set();
+const coachlabSuggestionSelected=new Set();
+let destinationMessage='';
 let researchMessage='';
 let personafyMessage='';
 let personafyPickFingerprint='';
@@ -62,6 +65,16 @@ for(const link of document.querySelectorAll('.app > .sidebar a'))link.addEventLi
 function showView(){const hash=decodeURIComponent(location.hash.slice(1));const section=!hash||hash==='home'?'home':hash==='idea-map'||hash==='knowledge-web'?'idea-map':['my-library','research-results','project-ideas','ideas','recipes','wishlist','settings'].includes(hash)?hash:hash.startsWith('project-')?'project-ideas':hash.startsWith('recipe-')?'recipes':hash.startsWith('result-')?'research-results':hash==='library-post-detail'?'my-library':'home';for(const node of document.querySelectorAll('.workspace-section'))node.hidden=node.id!==section;syncNav(section);if(hash&&document.getElementById(hash))document.getElementById(hash).scrollIntoView({block:'start'});}
 window.addEventListener('hashchange',showView);
 function compactResult(video){const tile=el('article',undefined,'compact-result');tile.id='result-'+encodeURIComponent(video.id);const box=document.createElement('input');box.type='checkbox';box.dataset.researchId=video.id;box.setAttribute('aria-label','Select result: '+(video.result?.title||video.title));box.checked=researchSelected.has(video.id);box.onchange=()=>{box.checked?researchSelected.add(video.id):researchSelected.delete(video.id);syncResearchSelectAll();};const openLink=el('a','Open on Instagram','research-open');openLink.href=video.url;openLink.target='_blank';openLink.rel='noopener noreferrer';const head=el('div',undefined,'research-pick-row');head.append(box,openLink);const open=el('button',undefined,'card-open');open.append(thumbnailNode(document,video.thumbnailUrl),el('h3',video.result?.title||video.title),el('span','New ideas','project-tag'),el('span',videoStatus(video),'pill'),el('p',shortSummary(video)));open.onclick=()=>openFullResult(video);tile.append(head,open);return tile;}
+const DESTINATION_LABELS={
+  personafy_reference:{key:'personafyReference',list:'personafy-reference-list',send:'send-personafy-references',selected:personafyReferenceSelected,action:'not_reference',sendLabel:'Personafy references'},
+  coachlab:{key:'coachlab',list:'coachlab-suggestions-list',send:'send-coachlab-suggestions',selected:coachlabSuggestionSelected,action:'not_coachlab',sendLabel:'CoachLab'},
+};
+function destinationFeedbackMap(){const map=new Map();for(const row of state.destinationFeedback||[])map.set(row.videoId+':'+row.destination,row.action);return map;}
+function destinationSuggestionRows(kind){const meta=DESTINATION_LABELS[kind],decisions=destinationFeedbackMap();return state.videos.filter(video=>!isTestFixture(video)&&video.result?.destinations?.[meta.key]?.suggested&&!decisions.has(video.id+':'+kind));}
+function renderDestinationSuggestions(){if(!$('destination-suggestions'))return;for(const kind of Object.keys(DESTINATION_LABELS)){const meta=DESTINATION_LABELS[kind],rows=destinationSuggestionRows(kind);const list=$(meta.list);if(!list)continue;if(!rows.length){list.replaceChildren(el('p','No suggestions right now.','small'));}else{list.replaceChildren(...rows.map(video=>{const suggestion=video.result.destinations[meta.key];const row=el('article',undefined,'destination-row');const box=document.createElement('input');box.type='checkbox';box.dataset.destination=kind;box.dataset.videoId=video.id;box.checked=meta.selected.has(video.id);box.onchange=()=>{box.checked?meta.selected.add(video.id):meta.selected.delete(video.id);};const open=el('a','Open on Instagram','personafy-open');open.href=video.url;open.target='_blank';open.rel='noopener noreferrer';const dismiss=el('button',kind==='coachlab'?'Not for CoachLab':'Not a reference','secondary destination-dismiss');dismiss.onclick=()=>dismissDestination(kind,video.id);const text=el('div',undefined,'destination-row-text');text.append(el('strong',(video.result?.title||video.title||'Saved post').slice(0,140)),el('span',suggestion.reason||'Suggested from the saved analysis.','small'),open);row.append(box,thumbnailNode(document,video.thumbnailUrl),text,dismiss);return row;}));}const button=$(meta.send);if(button){button.disabled=!meta.selected.size;button.textContent='Send selected to '+meta.sendLabel+(meta.selected.size?' ('+meta.selected.size+')':'');}}
+  $('destination-status').textContent=destinationMessage||'Pick posts from either list, then send.'; }
+async function dismissDestination(kind,videoId){const meta=DESTINATION_LABELS[kind];try{const result=await action('/api/destinations/feedback',{videoId,destination:kind,action:meta.action});meta.selected.delete(videoId);destinationMessage=result.message;render();}catch(error){destinationMessage=error.message;render();}}
+async function sendDestination(kind){const meta=DESTINATION_LABELS[kind],ids=[...meta.selected];if(!ids.length){destinationMessage='Choose at least one post first.';render();return;}const endpoint=kind==='personafy_reference'?'/api/reference-handoff/send':'/api/coachlab/send';try{const result=await action(endpoint,{ids});destinationMessage=result.message||('Sent to '+meta.sendLabel+'.');meta.selected.clear();render();}catch(error){destinationMessage=error.message;render();}}
 function syncResearchSelectAll(){const boxes=[...document.querySelectorAll('#results input[data-research-id]')];const all=$('research-select-all');all.checked=boxes.length>0&&boxes.every(box=>box.checked);all.disabled=!boxes.length;$('research-send-status').textContent=researchMessage||(researchSelected.size?researchSelected.size+' selected.':'Pick results, then send.');}
 function renderResearchSendTools(){const all=$('research-select-all');if(all)all.onchange=()=>{const checked=all.checked;for(const box of document.querySelectorAll('#results input[data-research-id]')){box.checked=checked;if(checked)researchSelected.add(box.dataset.researchId);else researchSelected.delete(box.dataset.researchId);}syncResearchSelectAll();};syncResearchSelectAll();}
 async function sendResearchTo(kind){const ids=[...researchSelected];if(!ids.length){researchMessage='Choose at least one result first.';syncResearchSelectAll();return;}const endpoint=kind==='personafy'?'/api/reference-handoff/send':'/api/coachlab/send',label=kind==='personafy'?'Personafy':'CoachLab';$('research-send-status').textContent='Sending to '+label+'…';try{const result=await action(endpoint,{ids});researchMessage=result.message||('Sent to '+label+'.');researchSelected.clear();syncResearchSelectAll();message(researchMessage);}catch(error){researchMessage=error.message;syncResearchSelectAll();}}
@@ -69,6 +82,8 @@ async function runSavedResult(video,button,feedback){button.disabled=true;try{co
 let handoffFingerprint='';
 $('reference-handoff-save').onclick=()=>action('/api/reference-handoff/settings',{enabled:$('reference-handoff-enabled').checked}).then(()=>message('Reference hand-off setting saved.')).catch(()=>{});
 $('reference-handoff-retry-all').onclick=()=>action('/api/reference-handoff/retry',{id:'all'}).then(r=>message(r.message)).catch(()=>{});
+$('send-personafy-references').onclick=()=>sendDestination('personafy_reference');
+$('send-coachlab-suggestions').onclick=()=>sendDestination('coachlab');
 $('research-personafy-send').onclick=()=>sendResearchTo('personafy');
 $('research-coachlab-send').onclick=()=>sendResearchTo('coachlab');
 $('personafy-select-all').onchange=()=>{const checked=$('personafy-select-all').checked;for(const box of document.querySelectorAll('#personafy-pick-list input[data-video-id]')){box.checked=checked;if(checked)personafySelected.add(box.dataset.videoId);else personafySelected.delete(box.dataset.videoId);}syncPersonafySelectAll();};
@@ -152,6 +167,7 @@ function render(){
   const researched=routes.research.filter(x=>resultFilter!=='just-finished'||batchIds.has(x.id));
   $('results').replaceChildren(...researched.slice(0,visibleLimit).map(compactResult));
   renderResearchSendTools();
+  renderDestinationSuggestions();
   if(!researched.length)$('results').append(el('div',resultFilter==='just-finished'?'No results from the latest batch yet.':'No research results yet.','empty'));
   if(researched.length>visibleLimit){const more=el('button','Show more results','secondary');more.onclick=()=>{visibleLimit+=25;render();};$('results').append(more);}
   renderDashboard(state);
