@@ -47,7 +47,7 @@ export function createApp({store,queue,localAIEnabled=false,researchProvider='de
   const savedAnalysis=new SavedAnalysis({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
   const applyPlans=new ProjectApplyPlans({store,apiKey:process.env.DEEPSEEK_API_KEY,isBusy:()=>queue.running||queue.active.size>0||batches?.starting||savedAnalysis.running||rechecks?.status().running||combinations?.status().running,onUsage:record=>recordUsage(USAGE_FILE,record)});
   const researchBusy=()=>queue.running||queue.active.size>0||batches?.starting||savedAnalysis.running||rechecks?.status().running||combinations?.status().running||applyPlans.status().running;
-  const referenceHandoff=new ReferenceHandoff({store,browser:browserSession,isBusy:researchBusy});
+  const referenceHandoff=new ReferenceHandoff({store,browser:browserSession,metadata:url=>browserSession.referenceMetadata(url),isBusy:researchBusy});
   const sync=new SavedSync({store,browser:browserSession,isBusy:()=>researchBusy()||referenceHandoff.running,handoff:referenceHandoff});
   const wishlist=new Wishlist({store,apiKey:key,quota:braveQuota,isBusy:()=>researchBusy()||sync.running||referenceHandoff.running});
   // Brave searches use the free monthly credit, so every search still shows a cost preview.
